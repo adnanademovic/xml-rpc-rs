@@ -1,3 +1,27 @@
+use std;
+use std::collections::HashMap;
+use serde_xml_rs::deserialize;
+use super::{Call, Response, Value};
+use super::error::{Result, ResultExt};
+
+#[allow(dead_code)]
+pub fn parse_xml<T: std::io::Read>(r: T) -> Result<Value> {
+    let data: XmlValue = deserialize(r).chain_err(|| "Failed to parse XML-RPC data.")?;
+    data.into()
+}
+
+pub fn parse_call<T: std::io::Read>(r: T) -> Result<Call> {
+    let data: XmlCall = deserialize(r).chain_err(|| "Failed to parse XML-RPC call.")?;
+    data.into()
+}
+
+pub fn parse_response<T: std::io::Read>(r: T) -> Result<Response> {
+    let data: XmlResponse = deserialize(r).chain_err(
+        || "Failed to parse XML-RPC response.",
+    )?;
+    data.into()
+}
+
 #[derive(Debug, PartialEq, Deserialize)]
 enum XmlValue {
     #[serde(rename = "i4")]
@@ -20,12 +44,44 @@ enum XmlValue {
     Struct(XmlStruct),
 }
 
+impl Into<Result<Value>> for XmlValue {
+    fn into(self) -> Result<Value> {
+        Ok(match self {
+            XmlValue::I4(v) => Value::Int(v),
+            XmlValue::Int(v) => Value::Int(v),
+            XmlValue::Bool(v) => Value::Bool(v != 0),
+            XmlValue::Str(v) => Value::String(v),
+            XmlValue::Double(v) => Value::Double(v.parse().chain_err(|| "Failed to parse double")?),
+            XmlValue::DateTime(v) => Value::DateTime(v),
+            XmlValue::Base64(v) => Value::Base64(v),
+            XmlValue::Array(v) => {
+                let items: Result<Vec<Value>> = v.into();
+                Value::Array(items?)
+            }
+            XmlValue::Struct(v) => {
+                let items: Result<HashMap<String, Value>> = v.into();
+                Value::Struct(items?)
+            }
+        })
+    }
+}
+
 #[derive(Debug, PartialEq, Deserialize)]
 #[serde(rename = "methodCall")]
 struct XmlCall {
     #[serde(rename = "methodName")]
     pub name: String,
     pub params: XmlParams,
+}
+
+impl Into<Result<Call>> for XmlCall {
+    fn into(self) -> Result<Call> {
+        let params: Result<Vec<Value>> = self.params.into();
+        Ok(Call {
+            name: self.name,
+            params: params?,
+        })
+    }
 }
 
 #[derive(Debug, PartialEq, Deserialize)]
@@ -36,10 +92,50 @@ enum XmlResponseResult {
     Failure { value: XmlValue },
 }
 
+impl Into<Result<Response>> for XmlResponseResult {
+    fn into(self) -> Result<Response> {
+        match self {
+            XmlResponseResult::Success(params) => {
+                let params: Result<Vec<Value>> = params.into();
+                Ok(Response::Success { params: params? })
+            }
+            XmlResponseResult::Failure { value: v } => {
+                let val: Result<Value> = v.into();
+                if let Value::Struct(mut fields) = val? {
+                    let code = match fields.remove("faultCode") {
+                        Some(Value::Int(ref v)) => v.clone(),
+                        Some(_) => bail!("Field \"faultCode\" needs to be an integer"),
+                        None => bail!("Field \"faultCode\" is missing in fault response"),
+                    };
+                    let message = match fields.remove("faultString") {
+                        Some(Value::String(ref v)) => v.clone(),
+                        Some(_) => bail!("Field \"faultString\" needs to be a string"),
+                        None => bail!("Field \"faultString\" is missing in fault response"),
+                    };
+                    Ok(Response::Fault {
+                        code: code,
+                        message: message,
+                    })
+                } else {
+                    bail!("Illegal response structure for fault case.");
+                }
+            }
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Deserialize)]
 enum XmlResponse {
     #[serde(rename = "methodResponse")]
     Response(XmlResponseResult),
+}
+
+impl Into<Result<Response>> for XmlResponse {
+    fn into(self) -> Result<Response> {
+        match self {
+            XmlResponse::Response(v) => v.into(),
+        }
+    }
 }
 
 
@@ -49,9 +145,24 @@ struct XmlParams {
     pub params: Vec<XmlParamData>,
 }
 
+impl Into<Result<Vec<Value>>> for XmlParams {
+    fn into(self) -> Result<Vec<Value>> {
+        self.params
+            .into_iter()
+            .map(Into::<Result<Value>>::into)
+            .collect()
+    }
+}
+
 #[derive(Debug, PartialEq, Deserialize)]
 struct XmlParamData {
     pub value: XmlValue,
+}
+
+impl Into<Result<Value>> for XmlParamData {
+    fn into(self) -> Result<Value> {
+        self.value.into()
+    }
 }
 
 #[derive(Debug, PartialEq, Deserialize)]
@@ -60,9 +171,24 @@ struct XmlArray {
     pub data: XmlArrayData,
 }
 
+impl Into<Result<Vec<Value>>> for XmlArray {
+    fn into(self) -> Result<Vec<Value>> {
+        self.data.into()
+    }
+}
+
 #[derive(Debug, PartialEq, Deserialize)]
 struct XmlArrayData {
     pub value: Vec<XmlValue>,
+}
+
+impl Into<Result<Vec<Value>>> for XmlArrayData {
+    fn into(self) -> Result<Vec<Value>> {
+        self.value
+            .into_iter()
+            .map(Into::<Result<Value>>::into)
+            .collect()
+    }
 }
 
 #[derive(Debug, PartialEq, Deserialize)]
@@ -71,251 +197,24 @@ struct XmlStruct {
     pub members: Vec<XmlStructItem>,
 }
 
+impl Into<Result<HashMap<String, Value>>> for XmlStruct {
+    fn into(self) -> Result<HashMap<String, Value>> {
+        self.members
+            .into_iter()
+            .map(Into::<Result<(String, Value)>>::into)
+            .collect()
+    }
+}
+
 #[derive(Debug, PartialEq, Deserialize)]
 struct XmlStructItem {
     pub name: String,
     pub value: XmlValue,
 }
 
-#[cfg(test)]
-mod tests {
-    use serde_xml_rs::deserialize;
-    use super::*;
-
-    static BAD_DATA: &'static str = "Bad data provided";
-
-    #[test]
-    fn reads_pod_xml_value() {
-        let data = r#"<?xml version="1.0"?><string>South Dakota</string>"#;
-        let data: XmlValue = deserialize(data.as_bytes()).expect(BAD_DATA);
-        assert_eq!(data, XmlValue::Str("South Dakota".into()));
-        let data = r#"<?xml version="1.0"?><string />"#;
-        let data: XmlValue = deserialize(data.as_bytes()).expect(BAD_DATA);
-        assert_eq!(data, XmlValue::Str("".into()));
-        let data = r#"<?xml version="1.0"?><string></string>"#;
-        let data: XmlValue = deserialize(data.as_bytes()).expect(BAD_DATA);
-        assert_eq!(data, XmlValue::Str("".into()));
-
-        let data = r#"<?xml version="1.0"?><int>-33</int>"#;
-        let data: XmlValue = deserialize(data.as_bytes()).expect(BAD_DATA);
-        assert_eq!(data, XmlValue::Int(-33));
-        let data = r#"<?xml version="1.0"?><i4>-33</i4>"#;
-        let data: XmlValue = deserialize(data.as_bytes()).expect(BAD_DATA);
-        assert_eq!(data, XmlValue::I4(-33));
-
-        let data = r#"<?xml version="1.0"?><boolean>1</boolean>"#;
-        let data: XmlValue = deserialize(data.as_bytes()).expect(BAD_DATA);
-        assert_eq!(data, XmlValue::Bool(1));
-        let data = r#"<?xml version="1.0"?><boolean>0</boolean>"#;
-        let data: XmlValue = deserialize(data.as_bytes()).expect(BAD_DATA);
-        assert_eq!(data, XmlValue::Bool(0));
-
-        let data = r#"<?xml version="1.0"?><double>-44.2</double>"#;
-        let data: XmlValue = deserialize(data.as_bytes()).expect(BAD_DATA);
-        assert_eq!(data, XmlValue::Double("-44.2".into()));
-
-        let data = r#"<?xml version="1.0"?><dateTime.iso8601>33</dateTime.iso8601>"#;
-        let data: XmlValue = deserialize(data.as_bytes()).expect(BAD_DATA);
-        assert_eq!(data, XmlValue::DateTime("33".into()));
-
-        let data = r#"<?xml version="1.0"?><base64>ASDF=</base64>"#;
-        let data: XmlValue = deserialize(data.as_bytes()).expect(BAD_DATA);
-        assert_eq!(data, XmlValue::Base64("ASDF=".into()));
-    }
-
-    #[test]
-    fn reads_array_xml_value() {
-        let data = r#"<?xml version="1.0"?>
-<array>
-    <data>
-        <value><i4>33</i4></value>
-        <value><i4>-12</i4></value>
-        <value><i4>44</i4></value>
-    </data>
-</array>"#;
-        let data: XmlValue = deserialize(data.as_bytes()).expect(BAD_DATA);
-        assert_eq!(
-            data,
-            XmlValue::Array(XmlArray {
-                data: XmlArrayData {
-                    value: vec![XmlValue::I4(33), XmlValue::I4(-12), XmlValue::I4(44)],
-                },
-            })
-        );
-    }
-
-    #[test]
-    fn reads_struct_xml_value() {
-        let data = r#"<?xml version="1.0"?>
-<struct>
-    <member>
-        <name>foo</name>
-        <value><i4>42</i4></value>
-    </member>
-    <member>
-        <name>bar</name>
-        <value><string>baz</string></value>
-    </member>
-</struct>"#;
-        let data: XmlValue = deserialize(data.as_bytes()).expect(BAD_DATA);
-        assert_eq!(
-            data,
-            XmlValue::Struct(XmlStruct {
-                members: vec![
-                    XmlStructItem {
-                        name: "foo".into(),
-                        value: XmlValue::I4(42),
-                    },
-                    XmlStructItem {
-                        name: "bar".into(),
-                        value: XmlValue::Str("baz".into()),
-                    },
-                ],
-            })
-        );
-    }
-
-    #[test]
-    fn reads_response() {
-        let data = r#"<?xml version="1.0"?>
-<methodResponse>
-    <params>
-        <param>
-            <value><string>South Dakota</string></value>
-        </param>
-        <param>
-            <value>
-                <struct>
-                    <member>
-                        <name>foo</name>
-                        <value><i4>42</i4></value>
-                    </member>
-                    <member>
-                        <name>bar</name>
-                        <value><string>baz</string></value>
-                    </member>
-                </struct>
-            </value>
-        </param>
-    </params>
-</methodResponse>"#;
-        use serde_xml_rs::deserialize;
-        let data: XmlResponse = deserialize(data.as_bytes()).expect(BAD_DATA);
-        assert_eq!(
-            data,
-            XmlResponse::Response(XmlResponseResult::Success(XmlParams {
-                params: vec![
-                    XmlParamData { value: XmlValue::Str("South Dakota".into()) },
-                    XmlParamData {
-                        value: XmlValue::Struct(XmlStruct {
-                            members: vec![
-                                XmlStructItem {
-                                    name: "foo".into(),
-                                    value: XmlValue::I4(42),
-                                },
-                                XmlStructItem {
-                                    name: "bar".into(),
-                                    value: XmlValue::Str("baz".into()),
-                                },
-                            ],
-                        }),
-                    },
-                ],
-            }))
-        );
-    }
-
-    #[test]
-    fn reads_fault() {
-        let data = r#"<?xml version="1.0"?>
-<methodResponse>
-    <fault>
-        <value>
-            <struct>
-                <member>
-                    <name>faultCode</name>
-                    <value><int>4</int></value>
-                </member>
-                <member>
-                    <name>faultString</name>
-                    <value><string>Too many parameters.</string></value>
-                </member>
-            </struct>
-        </value>
-    </fault>
-</methodResponse>"#;
-        use serde_xml_rs::deserialize;
-        let data: XmlResponse = deserialize(data.as_bytes()).expect(BAD_DATA);
-        assert_eq!(
-            data,
-            XmlResponse::Response(XmlResponseResult::Failure {
-                value: XmlValue::Struct(XmlStruct {
-                    members: vec![
-                        XmlStructItem {
-                            name: "faultCode".into(),
-                            value: XmlValue::Int(4),
-                        },
-                        XmlStructItem {
-                            name: "faultString".into(),
-                            value: XmlValue::Str("Too many parameters.".into()),
-                        },
-                    ],
-                }),
-            })
-        );
-    }
-
-    #[test]
-    fn reads_call() {
-        let data = r#"<?xml version="1.0"?>
-<methodCall>
-    <methodName>foobar</methodName>
-    <params>
-        <param>
-            <value><string>South Dakota</string></value>
-        </param>
-        <param>
-            <value>
-                <struct>
-                    <member>
-                        <name>foo</name>
-                        <value><i4>42</i4></value>
-                    </member>
-                    <member>
-                        <name>bar</name>
-                        <value><string>baz</string></value>
-                    </member>
-                </struct>
-            </value>
-        </param>
-    </params>
-</methodCall>"#;
-        use serde_xml_rs::deserialize;
-        let data: XmlCall = deserialize(data.as_bytes()).expect(BAD_DATA);
-        assert_eq!(
-            data,
-            XmlCall {
-                name: "foobar".into(),
-                params: XmlParams {
-                    params: vec![
-                        XmlParamData { value: XmlValue::Str("South Dakota".into()) },
-                        XmlParamData {
-                            value: XmlValue::Struct(XmlStruct {
-                                members: vec![
-                                    XmlStructItem {
-                                        name: "foo".into(),
-                                        value: XmlValue::I4(42),
-                                    },
-                                    XmlStructItem {
-                                        name: "bar".into(),
-                                        value: XmlValue::Str("baz".into()),
-                                    },
-                                ],
-                            }),
-                        },
-                    ],
-                },
-            }
-        );
+impl Into<Result<(String, Value)>> for XmlStructItem {
+    fn into(self) -> Result<(String, Value)> {
+        let value: Result<Value> = self.value.into();
+        Ok((self.name, value?))
     }
 }
