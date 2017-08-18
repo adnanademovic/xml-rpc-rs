@@ -6,39 +6,39 @@ static BAD_DATA: &'static str = "Bad data provided";
 #[test]
 fn reads_pod_xml_value() {
     let data = r#"<?xml version="1.0"?><string>South Dakota</string>"#;
-    let data = parse_xml(data.as_bytes()).expect(BAD_DATA);
+    let data = parse::xml(data.as_bytes()).expect(BAD_DATA);
     assert_eq!(data, Value::String("South Dakota".into()));
     let data = r#"<?xml version="1.0"?><string />"#;
-    let data = parse_xml(data.as_bytes()).expect(BAD_DATA);
+    let data = parse::xml(data.as_bytes()).expect(BAD_DATA);
     assert_eq!(data, Value::String("".into()));
     let data = r#"<?xml version="1.0"?><string></string>"#;
-    let data = parse_xml(data.as_bytes()).expect(BAD_DATA);
+    let data = parse::xml(data.as_bytes()).expect(BAD_DATA);
     assert_eq!(data, Value::String("".into()));
 
     let data = r#"<?xml version="1.0"?><int>-33</int>"#;
-    let data = parse_xml(data.as_bytes()).expect(BAD_DATA);
+    let data = parse::xml(data.as_bytes()).expect(BAD_DATA);
     assert_eq!(data, Value::Int(-33));
     let data = r#"<?xml version="1.0"?><i4>-33</i4>"#;
-    let data = parse_xml(data.as_bytes()).expect(BAD_DATA);
+    let data = parse::xml(data.as_bytes()).expect(BAD_DATA);
     assert_eq!(data, Value::Int(-33));
 
     let data = r#"<?xml version="1.0"?><boolean>1</boolean>"#;
-    let data = parse_xml(data.as_bytes()).expect(BAD_DATA);
+    let data = parse::xml(data.as_bytes()).expect(BAD_DATA);
     assert_eq!(data, Value::Bool(true));
     let data = r#"<?xml version="1.0"?><boolean>0</boolean>"#;
-    let data = parse_xml(data.as_bytes()).expect(BAD_DATA);
+    let data = parse::xml(data.as_bytes()).expect(BAD_DATA);
     assert_eq!(data, Value::Bool(false));
 
     let data = r#"<?xml version="1.0"?><double>-44.2</double>"#;
-    let data = parse_xml(data.as_bytes()).expect(BAD_DATA);
+    let data = parse::xml(data.as_bytes()).expect(BAD_DATA);
     assert_eq!(data, Value::Double(-44.2));
 
     let data = r#"<?xml version="1.0"?><dateTime.iso8601>33</dateTime.iso8601>"#;
-    let data = parse_xml(data.as_bytes()).expect(BAD_DATA);
+    let data = parse::xml(data.as_bytes()).expect(BAD_DATA);
     assert_eq!(data, Value::DateTime("33".into()));
 
     let data = r#"<?xml version="1.0"?><base64>ASDF=</base64>"#;
-    let data = parse_xml(data.as_bytes()).expect(BAD_DATA);
+    let data = parse::xml(data.as_bytes()).expect(BAD_DATA);
     assert_eq!(data, Value::Base64("ASDF=".into()));
 }
 
@@ -52,7 +52,7 @@ fn reads_array_xml_value() {
         <value><i4>44</i4></value>
     </data>
 </array>"#;
-    let data = parse_xml(data.as_bytes()).expect(BAD_DATA);
+    let data = parse::xml(data.as_bytes()).expect(BAD_DATA);
     assert_eq!(
         data,
         Value::Array(vec![Value::Int(33), Value::Int(-12), Value::Int(44)])
@@ -75,7 +75,7 @@ fn reads_struct_xml_value() {
         <value><string>baz</string></value>
     </member>
 </struct>"#;
-    let data = parse_xml(data.as_bytes()).expect(BAD_DATA);
+    let data = parse::xml(data.as_bytes()).expect(BAD_DATA);
     assert_eq!(data, Value::Struct(fields));
 }
 
@@ -107,7 +107,7 @@ fn reads_response() {
         </param>
     </params>
 </methodResponse>"#;
-    let data = parse_response(data.as_bytes()).expect(BAD_DATA);
+    let data = parse::response(data.as_bytes()).expect(BAD_DATA);
     assert_eq!(data, Response::Success { params: params });
 }
 
@@ -130,7 +130,7 @@ fn reads_fault() {
         </value>
     </fault>
 </methodResponse>"#;
-    let data = parse_response(data.as_bytes()).expect(BAD_DATA);
+    let data = parse::response(data.as_bytes()).expect(BAD_DATA);
     assert_eq!(
         data,
         Response::Fault {
@@ -169,7 +169,7 @@ fn reads_call() {
         </param>
     </params>
 </methodCall>"#;
-    let data = parse_call(data.as_bytes()).expect(BAD_DATA);
+    let data = parse::call(data.as_bytes()).expect(BAD_DATA);
     assert_eq!(data.name, String::from("foobar"));
     assert_eq!(
         data.params,

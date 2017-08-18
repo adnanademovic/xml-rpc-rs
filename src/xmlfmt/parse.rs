@@ -5,17 +5,17 @@ use super::{Call, Response, Value};
 use super::error::{Result, ResultExt};
 
 #[allow(dead_code)]
-pub fn parse_xml<T: std::io::Read>(r: T) -> Result<Value> {
+pub fn xml<T: std::io::Read>(r: T) -> Result<Value> {
     let data: XmlValue = deserialize(r).chain_err(|| "Failed to parse XML-RPC data.")?;
     data.into()
 }
 
-pub fn parse_call<T: std::io::Read>(r: T) -> Result<Call> {
+pub fn call<T: std::io::Read>(r: T) -> Result<Call> {
     let data: XmlCall = deserialize(r).chain_err(|| "Failed to parse XML-RPC call.")?;
     data.into()
 }
 
-pub fn parse_response<T: std::io::Read>(r: T) -> Result<Response> {
+pub fn response<T: std::io::Read>(r: T) -> Result<Response> {
     let data: XmlResponse = deserialize(r).chain_err(
         || "Failed to parse XML-RPC response.",
     )?;
