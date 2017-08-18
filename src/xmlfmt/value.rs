@@ -1,5 +1,7 @@
 use std;
 use std::collections::HashMap;
+use serde::Serialize;
+use super::ser::Serializer;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
@@ -37,6 +39,29 @@ pub enum Response<T> {
     Fault { code: i32, message: String },
 }
 
+impl<T> std::fmt::Display for Call<T>
+where
+    T: Serialize,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let data = self.data.serialize(Serializer {}).map_err(
+            |_| std::fmt::Error,
+        )?;
+        match data {
+            Value::Array(params) => {
+                CallValue {
+                    name: self.name.clone(),
+                    params,
+                }
+            }
+            _ => CallValue {
+                name: self.name.clone(),
+                params: vec![data],
+            },
+        }.fmt(f)
+    }
+}
+
 impl std::fmt::Display for CallValue {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, include_str!("templates/call_1.xml"), name = self.name)?;
@@ -44,6 +69,28 @@ impl std::fmt::Display for CallValue {
             write!(f, "<param>{}</param>", param)?;
         }
         write!(f, include_str!("templates/call_2.xml"))
+    }
+}
+
+impl<T> std::fmt::Display for Response<T>
+where
+    T: Serialize,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let ref value = match *self {
+            Response::Fault { code, ref message } => {
+                return ResponseValue::Fault {
+                    code,
+                    message: message.clone(),
+                }.fmt(f)
+            }
+            Response::Success(ref v) => v,
+        };
+        let data = value.serialize(Serializer {}).map_err(|_| std::fmt::Error)?;
+        match data {
+            Value::Array(params) => ResponseValue::Success { params },
+            _ => ResponseValue::Success { params: vec![data] },
+        }.fmt(f)
     }
 }
 

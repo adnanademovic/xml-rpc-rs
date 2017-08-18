@@ -1,4 +1,4 @@
-use serde::de;
+use serde::{de, ser};
 use std::fmt::Display;
 
 error_chain!{
@@ -6,6 +6,10 @@ error_chain!{
         Decoding(t: String) {
             description("Issue while decoding data structure")
             display("Issue while decoding data structure: {}", t)
+        }
+        Encoding(t: String) {
+            description("Issue while encoding data structure")
+            display("Issue while encoding data structure: {}", t)
         }
         UnsupportedData(t: String) {
             description("Given structure is not supported")
@@ -25,5 +29,11 @@ impl de::Error for Error {
         } else {
             Error::custom(format_args!("invalid type: {}, expected {}", unexp, exp))
         }
+    }
+}
+
+impl ser::Error for Error {
+    fn custom<T: Display>(msg: T) -> Error {
+        ErrorKind::Encoding(format!("{}", msg)).into()
     }
 }

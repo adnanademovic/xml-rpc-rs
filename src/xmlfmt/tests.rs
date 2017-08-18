@@ -1,5 +1,6 @@
+use std::fmt::Debug;
 use std::collections::HashMap;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use super::*;
 
 static BAD_DATA: &'static str = "Bad data provided";
@@ -178,13 +179,13 @@ fn reads_call() {
     );
 }
 
-#[derive(Debug, PartialEq, Deserialize)]
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
 struct TestStruct {
     foo: i32,
     bar: String,
 }
 
-#[derive(Debug, PartialEq, Deserialize)]
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
 struct TestStructTuple(String, TestStruct);
 
 #[test]
@@ -284,6 +285,24 @@ fn ser_and_de_response_value(value: ResponseValue) {
     assert_eq!(value, data);
 }
 
+fn ser_and_de_call<'a, T>(value: Call<T>)
+where
+    T: Debug + Serialize + Deserialize<'a> + PartialEq,
+{
+    let data = format!("{}", value);
+    let data = parse::call(data.as_bytes()).expect(BAD_DATA);
+    assert_eq!(value, data);
+}
+
+fn ser_and_de_response<'a, T>(value: Response<T>)
+where
+    T: Debug + Serialize + Deserialize<'a> + PartialEq,
+{
+    let data = format!("{}", value);
+    let data = parse::response(data.as_bytes()).expect(BAD_DATA);
+    assert_eq!(value, data);
+}
+
 #[test]
 fn writes_pod_xml_value() {
     ser_and_de(Value::String("South Dakota".into()));
@@ -330,7 +349,6 @@ fn writes_fault() {
     });
 }
 
-
 #[test]
 fn writes_call() {
     let mut fields = HashMap::<String, Value>::new();
@@ -339,5 +357,55 @@ fn writes_call() {
     ser_and_de_call_value(CallValue {
         name: String::from("foobar"),
         params: vec![Value::String("South Dakota".into()), Value::Struct(fields)],
+    });
+}
+
+#[test]
+fn writes_response_structure() {
+    ser_and_de_response(Response::Success((
+        String::from("South Dakota"),
+        TestStruct {
+            foo: 42,
+            bar: "baz".into(),
+        },
+    )));
+    ser_and_de_response(Response::Success(TestStructTuple(
+        String::from("South Dakota"),
+        TestStruct {
+            foo: 42,
+            bar: "baz".into(),
+        },
+    )));
+}
+
+#[test]
+fn writes_call_structure() {
+    ser_and_de_call(Call {
+        name: "foobar".into(),
+        data: (
+            String::from("South Dakota"),
+            TestStruct {
+                foo: 42,
+                bar: "baz".into(),
+            },
+        ),
+    });
+    ser_and_de_call(Call {
+        name: "foobar".into(),
+        data: TestStructTuple(
+            String::from("South Dakota"),
+            TestStruct {
+                foo: 42,
+                bar: "baz".into(),
+            },
+        ),
+    });
+}
+
+#[test]
+fn writes_fault_structure() {
+    ser_and_de_response::<()>(Response::Fault {
+        code: 4,
+        message: "Too many parameters.".into(),
     });
 }
