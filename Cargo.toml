@@ -1,0 +1,16 @@
+[package]
+authors = ["Adnan Ademovic <adnanademovic100@gmail.com>"]
+description = "Pure Rust implementation of XML-RPC"
+license = "MIT"
+name = "xml-rpc"
+readme = "README.md"
+repository = "https://github.com/adnanademovic/xml-rpc-rs"
+version = "0.1.0"
+
+[dependencies]
+futures = "0.1.14"
+tokio-core = "0.1.9"
+
+[dependencies.hyper]
+default-features = false
+version = "0.11.2"
