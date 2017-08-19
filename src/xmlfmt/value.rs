@@ -1,5 +1,6 @@
 use std;
 use std::collections::HashMap;
+use base64;
 use serde::Serialize;
 use super::ser::Serializer;
 
@@ -10,7 +11,7 @@ pub enum Value {
     String(String),
     Double(f64),
     DateTime(String),
-    Base64(String),
+    Base64(Vec<u8>),
     Array(Vec<Value>),
     Struct(HashMap<String, Value>),
 }
@@ -126,7 +127,7 @@ impl std::fmt::Display for Value {
             Value::String(ref v) => write!(f, "<string>{}</string>", v),
             Value::Double(v) => write!(f, "<double>{}</double>", v),
             Value::DateTime(ref v) => write!(f, "<dateTime.iso8601>{}</dateTime.iso8601>", v),
-            Value::Base64(ref v) => write!(f, "<base64>{}</base64>", v),
+            Value::Base64(ref v) => write!(f, "<base64>{}</base64>", base64::encode(v)),
             Value::Array(ref v) => {
                 write!(f, "<array><data>")?;
                 for item in v {

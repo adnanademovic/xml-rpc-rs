@@ -1,5 +1,6 @@
 use std;
 use std::collections::HashMap;
+use base64;
 use serde::Deserialize;
 use serde_xml_rs::deserialize;
 use super::{Call, Response, Value, CallValue, ResponseValue};
@@ -90,7 +91,9 @@ impl Into<Result<Value>> for XmlValue {
             XmlValue::Str(v) => Value::String(v),
             XmlValue::Double(v) => Value::Double(v.parse().chain_err(|| "Failed to parse double")?),
             XmlValue::DateTime(v) => Value::DateTime(v),
-            XmlValue::Base64(v) => Value::Base64(v),
+            XmlValue::Base64(v) => Value::Base64(base64::decode(v.as_bytes()).chain_err(
+                || "Failed to parse base64",
+            )?),
             XmlValue::Array(v) => {
                 let items: Result<Vec<Value>> = v.into();
                 Value::Array(items?)

@@ -69,8 +69,8 @@ impl serde::Serializer for Serializer {
         Ok(Value::String(v.into()))
     }
 
-    fn serialize_bytes(self, _v: &[u8]) -> Result<Self::Ok, Self::Error> {
-        bail!(ErrorKind::UnsupportedData("bytes".into()))
+    fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
+        Ok(Value::Base64(v.into()))
     }
 
     fn serialize_none(self) -> Result<Self::Ok, Self::Error> {

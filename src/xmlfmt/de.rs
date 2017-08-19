@@ -19,7 +19,7 @@ impl<'de> serde::Deserializer<'de> for Value {
             Value::String(v) => visitor.visit_string(v),
             Value::Double(v) => visitor.visit_f64(v),
             Value::DateTime(v) => visitor.visit_string(v),
-            Value::Base64(v) => visitor.visit_string(v),
+            Value::Base64(v) => visitor.visit_bytes(v.as_slice()),
             Value::Array(v) => {
                 let len = v.len();
                 let mut deserializer = SeqDeserializer::new(v);

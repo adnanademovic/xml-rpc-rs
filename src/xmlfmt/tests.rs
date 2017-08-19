@@ -39,9 +39,9 @@ fn reads_pod_xml_value() {
     let data = parse::xml(data.as_bytes()).expect(BAD_DATA);
     assert_eq!(data, Value::DateTime("33".into()));
 
-    let data = r#"<?xml version="1.0"?><base64>ASDF=</base64>"#;
+    let data = r#"<?xml version="1.0"?><base64>Zm9vYmFy</base64>"#;
     let data = parse::xml(data.as_bytes()).expect(BAD_DATA);
-    assert_eq!(data, Value::Base64("ASDF=".into()));
+    assert_eq!(data, Value::Base64("foobar".into()));
 }
 
 #[test]
