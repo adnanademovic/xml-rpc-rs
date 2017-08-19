@@ -11,4 +11,6 @@ extern crate serde_derive;
 extern crate serde_xml_rs;
 extern crate tokio_core;
 
+pub mod client;
+pub mod error;
 pub mod xmlfmt;
