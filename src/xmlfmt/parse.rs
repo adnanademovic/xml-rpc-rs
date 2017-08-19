@@ -25,38 +25,31 @@ pub fn response_value<T: std::io::Read>(r: T) -> Result<ResponseValue> {
 }
 
 pub fn call<'a, T: std::io::Read, D: Deserialize<'a>>(r: T) -> Result<Call<D>> {
-    let CallValue { name, mut params } = call_value(r)?;
-    let data = if params.len() == 1 {
-        params.pop().unwrap()
-    } else {
-        Value::Array(params)
-    };
+    let CallValue { name, params: p } = call_value(r)?;
     Ok(Call {
         name: name,
-        data: D::deserialize(data).chain_err(
-            || "Failed to convert XML-RPC to structure.",
-        )?,
+        data: params(p)?,
     })
 }
 
 pub fn response<'a, T: std::io::Read, D: Deserialize<'a>>(r: T) -> Result<Response<D>> {
     match response_value(r)? {
-        ResponseValue::Success { mut params } => {
-            let data = if params.len() == 1 {
-                params.pop().unwrap()
-            } else {
-                Value::Array(params)
-            };
-
-            Ok(Response::Success(D::deserialize(data).chain_err(
-                || "Failed to convert XML-RPC to structure.",
-            )?))
-        }
+        ResponseValue::Success { params: p } => Ok(Response::Success(params(p)?)),
         ResponseValue::Fault { code, message } => Ok(Response::Fault {
             code: code,
             message: message,
         }),
     }
+}
+
+pub fn params<'a, D: Deserialize<'a>>(mut params: Vec<Value>) -> Result<D> {
+    let data = if params.len() == 1 {
+        params.pop().unwrap()
+    } else {
+        Value::Array(params)
+    };
+
+    D::deserialize(data).chain_err(|| "Failed to convert XML-RPC to structure.")
 }
 
 

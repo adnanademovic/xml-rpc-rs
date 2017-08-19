@@ -16,3 +16,6 @@ pub mod client;
 pub mod error;
 pub mod server;
 pub mod xmlfmt;
+
+pub use client::Client;
+pub use server::Server;

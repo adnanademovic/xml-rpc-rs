@@ -20,12 +20,12 @@ impl Client {
         })
     }
 
-    pub fn call<Treq, Tres>(&mut self, uri: Uri, req: Treq) -> Result<Tres>
+    pub fn call<Treq, Tres>(&mut self, uri: &Uri, req: Treq) -> Result<Tres>
     where
         Treq: Into<Req>,
         Res: Into<Result<Tres>>,
     {
-        let mut request = Request::new(Method::Post, uri);
+        let mut request = Request::new(Method::Post, uri.clone());
         request.set_body(req.into().data);
         let work = self.client.request(request).and_then(|res| {
             res.body().concat2().map(|chunk| chunk.to_vec())

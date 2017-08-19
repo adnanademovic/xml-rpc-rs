@@ -2,7 +2,7 @@ use std;
 use std::collections::HashMap;
 use base64;
 use serde::Serialize;
-use super::ser::Serializer;
+use super::error::Result;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
@@ -14,6 +14,20 @@ pub enum Value {
     Base64(Vec<u8>),
     Array(Vec<Value>),
     Struct(HashMap<String, Value>),
+}
+
+impl Value {
+    pub fn from_struct<T: Serialize>(v: T) -> Result<Value> {
+        use super::ser::Serializer;
+        v.serialize(Serializer {})
+    }
+}
+
+pub fn params<T: Serialize>(v: T) -> Result<Vec<Value>> {
+    Ok(match Value::from_struct(v)? {
+        Value::Array(params) => params,
+        data => vec![data],
+    })
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -45,9 +59,7 @@ where
     T: Serialize,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let data = self.data.serialize(Serializer {}).map_err(
-            |_| std::fmt::Error,
-        )?;
+        let data = Value::from_struct(&self.data).map_err(|_| std::fmt::Error)?;
         match data {
             Value::Array(params) => {
                 CallValue {
@@ -87,7 +99,7 @@ where
             }
             Response::Success(ref v) => v,
         };
-        let data = value.serialize(Serializer {}).map_err(|_| std::fmt::Error)?;
+        let data = Value::from_struct(value).map_err(|_| std::fmt::Error)?;
         match data {
             Value::Array(params) => ResponseValue::Success { params },
             _ => ResponseValue::Success { params: vec![data] },
