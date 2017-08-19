@@ -18,3 +18,11 @@ tokio-core = "0.1.9"
 [dependencies.hyper]
 default-features = false
 version = "0.11.2"
+
+[lib]
+name = "xml_rpc"
+path = "src/lib.rs"
+
+[[bin]]
+name = "echo"
+path = "examples/echo.rs"
