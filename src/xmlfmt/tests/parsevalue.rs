@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use serde::Deserialize;
-use super::*;
+use super::super::*;
 
 static BAD_DATA: &'static str = "Bad data provided";
 
@@ -198,14 +198,14 @@ fn ser_and_de(value: Value) {
 }
 
 fn ser_and_de_call_value(value: Call) {
-    use super::value::ToXml;
+    use super::super::value::ToXml;
     let data = value.to_xml();
     let data = parse::call(data.as_bytes()).expect(BAD_DATA);
     assert_eq!(value, data);
 }
 
 fn ser_and_de_response_value(value: Response) {
-    use super::value::ToXml;
+    use super::super::value::ToXml;
     let data = value.to_xml();
     let data = parse::response(data.as_bytes()).expect(BAD_DATA);
     assert_eq!(value, data);

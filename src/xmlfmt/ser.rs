@@ -12,57 +12,57 @@ impl serde::Serializer for Serializer {
     type SerializeSeq = SerializeVec;
     type SerializeTuple = SerializeVec;
     type SerializeTupleStruct = SerializeVec;
-    type SerializeTupleVariant = SerializeFail;
+    type SerializeTupleVariant = SerializeVec;
     type SerializeMap = SerializeMap;
     type SerializeStruct = SerializeMap;
-    type SerializeStructVariant = SerializeFail;
+    type SerializeStructVariant = SerializeMap;
 
     fn serialize_bool(self, v: bool) -> Result<Self::Ok, Self::Error> {
         Ok(Value::Bool(v))
     }
 
-    fn serialize_i8(self, _v: i8) -> Result<Self::Ok, Self::Error> {
-        bail!(ErrorKind::UnsupportedData("i8".into()))
+    fn serialize_i8(self, v: i8) -> Result<Self::Ok, Self::Error> {
+        Ok(Value::Int(v as i32))
     }
 
-    fn serialize_i16(self, _v: i16) -> Result<Self::Ok, Self::Error> {
-        bail!(ErrorKind::UnsupportedData("i16".into()))
+    fn serialize_i16(self, v: i16) -> Result<Self::Ok, Self::Error> {
+        Ok(Value::Int(v as i32))
     }
 
     fn serialize_i32(self, v: i32) -> Result<Self::Ok, Self::Error> {
         Ok(Value::Int(v))
     }
 
-    fn serialize_i64(self, _v: i64) -> Result<Self::Ok, Self::Error> {
-        bail!(ErrorKind::UnsupportedData("i64".into()))
+    fn serialize_i64(self, v: i64) -> Result<Self::Ok, Self::Error> {
+        Ok(Value::String(v.to_string()))
     }
 
-    fn serialize_u8(self, _v: u8) -> Result<Self::Ok, Self::Error> {
-        bail!(ErrorKind::UnsupportedData("u8".into()))
+    fn serialize_u8(self, v: u8) -> Result<Self::Ok, Self::Error> {
+        Ok(Value::Int(v as i32))
     }
 
-    fn serialize_u16(self, _v: u16) -> Result<Self::Ok, Self::Error> {
-        bail!(ErrorKind::UnsupportedData("u16".into()))
+    fn serialize_u16(self, v: u16) -> Result<Self::Ok, Self::Error> {
+        Ok(Value::Int(v as i32))
     }
 
-    fn serialize_u32(self, _v: u32) -> Result<Self::Ok, Self::Error> {
-        bail!(ErrorKind::UnsupportedData("u32".into()))
+    fn serialize_u32(self, v: u32) -> Result<Self::Ok, Self::Error> {
+        Ok(Value::String(v.to_string()))
     }
 
-    fn serialize_u64(self, _v: u64) -> Result<Self::Ok, Self::Error> {
-        bail!(ErrorKind::UnsupportedData("u64".into()))
+    fn serialize_u64(self, v: u64) -> Result<Self::Ok, Self::Error> {
+        Ok(Value::String(v.to_string()))
     }
 
-    fn serialize_f32(self, _v: f32) -> Result<Self::Ok, Self::Error> {
-        bail!(ErrorKind::UnsupportedData("f32".into()))
+    fn serialize_f32(self, v: f32) -> Result<Self::Ok, Self::Error> {
+        Ok(Value::Double(v as f64))
     }
 
     fn serialize_f64(self, v: f64) -> Result<Self::Ok, Self::Error> {
         Ok(Value::Double(v))
     }
 
-    fn serialize_char(self, _v: char) -> Result<Self::Ok, Self::Error> {
-        bail!(ErrorKind::UnsupportedData("char".into()))
+    fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
+        Ok(Value::String(v.to_string()))
     }
 
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
@@ -74,14 +74,14 @@ impl serde::Serializer for Serializer {
     }
 
     fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
-        bail!(ErrorKind::UnsupportedData("None".into()))
+        Ok(Value::Array(Vec::new()))
     }
 
-    fn serialize_some<T: ?Sized>(self, _value: &T) -> Result<Self::Ok, Self::Error>
+    fn serialize_some<T: ?Sized>(self, value: &T) -> Result<Self::Ok, Self::Error>
     where
         T: Serialize,
     {
-        bail!(ErrorKind::UnsupportedData("Some".into()))
+        Ok(Value::Array(vec![value.serialize(self)?]))
     }
 
     fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
@@ -96,33 +96,37 @@ impl serde::Serializer for Serializer {
         self,
         _name: &'static str,
         _variant_index: u32,
-        _variant: &'static str,
+        variant: &'static str,
     ) -> Result<Self::Ok, Self::Error> {
-        bail!(ErrorKind::UnsupportedData("Unit Variant".into()))
+        let mut members = HashMap::new();
+        members.insert(variant.into(), self.serialize_unit()?);
+        Ok(Value::Struct(members))
     }
 
     fn serialize_newtype_struct<T: ?Sized>(
         self,
         _name: &'static str,
-        _value: &T,
+        value: &T,
     ) -> Result<Self::Ok, Self::Error>
     where
         T: Serialize,
     {
-        bail!(ErrorKind::UnsupportedData("Newtype Struct".into()))
+        value.serialize(self)
     }
 
     fn serialize_newtype_variant<T: ?Sized>(
         self,
         _name: &'static str,
         _variant_index: u32,
-        _variant: &'static str,
-        _value: &T,
+        variant: &'static str,
+        value: &T,
     ) -> Result<Self::Ok, Self::Error>
     where
         T: Serialize,
     {
-        bail!(ErrorKind::UnsupportedData("Newtype Variant".into()))
+        let mut members = HashMap::new();
+        members.insert(variant.into(), value.serialize(self)?);
+        Ok(Value::Struct(members))
     }
 
     fn serialize_seq(self, len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
@@ -130,7 +134,10 @@ impl serde::Serializer for Serializer {
     }
 
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple, Self::Error> {
-        Ok(SerializeVec { vec: Vec::with_capacity(len) })
+        Ok(SerializeVec {
+            vec: Vec::with_capacity(len),
+            variant: None,
+        })
     }
 
     fn serialize_tuple_struct(
@@ -145,16 +152,20 @@ impl serde::Serializer for Serializer {
         self,
         _name: &'static str,
         _variant_index: u32,
-        _variant: &'static str,
-        _len: usize,
+        variant: &'static str,
+        len: usize,
     ) -> Result<Self::SerializeTupleVariant, Self::Error> {
-        bail!(ErrorKind::UnsupportedData("Tuple Variant".into()))
+        Ok(SerializeVec {
+            vec: Vec::with_capacity(len),
+            variant: Some(variant.into()),
+        })
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
         Ok(SerializeMap {
             map: HashMap::new(),
             next_key: None,
+            variant: None,
         })
     }
 
@@ -170,10 +181,14 @@ impl serde::Serializer for Serializer {
         self,
         _name: &'static str,
         _variant_index: u32,
-        _variant: &'static str,
+        variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeStructVariant, Self::Error> {
-        bail!(ErrorKind::UnsupportedData("Struct Variant".into()))
+        Ok(SerializeMap {
+            map: HashMap::new(),
+            next_key: None,
+            variant: Some(variant.into()),
+        })
     }
 }
 
@@ -187,6 +202,7 @@ where
 #[doc(hidden)]
 pub struct SerializeVec {
     vec: Vec<Value>,
+    variant: Option<String>,
 }
 
 impl serde::ser::SerializeSeq for SerializeVec {
@@ -202,7 +218,15 @@ impl serde::ser::SerializeSeq for SerializeVec {
     }
 
     fn end(self) -> Result<Value, Error> {
-        Ok(Value::Array(self.vec))
+        let content = Value::Array(self.vec);
+        Ok(match self.variant {
+            Some(variant) => {
+                let mut members = HashMap::new();
+                members.insert(variant, content);
+                Value::Struct(members)
+            }
+            None => content,
+        })
     }
 }
 
@@ -238,10 +262,27 @@ impl serde::ser::SerializeTupleStruct for SerializeVec {
     }
 }
 
+impl serde::ser::SerializeTupleVariant for SerializeVec {
+    type Ok = Value;
+    type Error = Error;
+
+    fn serialize_field<T: ?Sized>(&mut self, value: &T) -> Result<(), Error>
+    where
+        T: Serialize,
+    {
+        serde::ser::SerializeSeq::serialize_element(self, value)
+    }
+
+    fn end(self) -> Result<Value, Error> {
+        serde::ser::SerializeSeq::end(self)
+    }
+}
+
 #[doc(hidden)]
 pub struct SerializeMap {
     map: HashMap<String, Value>,
     next_key: Option<String>,
+    variant: Option<String>,
 }
 
 impl serde::ser::SerializeMap for SerializeMap {
@@ -272,7 +313,15 @@ impl serde::ser::SerializeMap for SerializeMap {
     }
 
     fn end(self) -> Result<Value, Error> {
-        Ok(Value::Struct(self.map))
+        let content = Value::Struct(self.map);
+        Ok(match self.variant {
+            Some(variant) => {
+                let mut members = HashMap::new();
+                members.insert(variant, content);
+                Value::Struct(members)
+            }
+            None => content,
+        })
     }
 }
 
@@ -293,38 +342,19 @@ impl serde::ser::SerializeStruct for SerializeMap {
     }
 }
 
-#[doc(hidden)]
-pub struct SerializeFail {}
-
-impl serde::ser::SerializeTupleVariant for SerializeFail {
+impl serde::ser::SerializeStructVariant for SerializeMap {
     type Ok = Value;
     type Error = Error;
 
-    fn serialize_field<T: ?Sized>(&mut self, _value: &T) -> Result<(), Error>
+    fn serialize_field<T: ?Sized>(&mut self, key: &'static str, value: &T) -> Result<(), Error>
     where
         T: Serialize,
     {
-        bail!("Fail")
+        serde::ser::SerializeMap::serialize_key(self, key)?;
+        serde::ser::SerializeMap::serialize_value(self, value)
     }
 
     fn end(self) -> Result<Value, Error> {
-        bail!("Fail")
-    }
-}
-
-
-impl serde::ser::SerializeStructVariant for SerializeFail {
-    type Ok = Value;
-    type Error = Error;
-
-    fn serialize_field<T: ?Sized>(&mut self, _key: &'static str, _value: &T) -> Result<(), Error>
-    where
-        T: Serialize,
-    {
-        bail!("Fail")
-    }
-
-    fn end(self) -> Result<Value, Error> {
-        bail!("Fail")
+        serde::ser::SerializeMap::end(self)
     }
 }
