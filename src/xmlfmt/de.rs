@@ -1,10 +1,11 @@
+use std;
 use std::collections::HashMap;
 use std::vec;
 use serde::{self, Deserializer};
-use serde::de::{DeserializeSeed, EnumAccess, IntoDeserializer, MapAccess, SeqAccess, Unexpected,
-                VariantAccess, Visitor};
+use serde::de::{DeserializeSeed, EnumAccess, MapAccess, SeqAccess, Unexpected, VariantAccess,
+                Visitor};
 use super::Value;
-use super::error::{Error, Result, ResultExt};
+use super::error::{Error, Result};
 
 impl<'de> serde::Deserializer<'de> for Value {
     type Error = Error;
@@ -56,10 +57,19 @@ impl<'de> serde::Deserializer<'de> for Value {
     where
         V: Visitor<'de>,
     {
-        if let Value::Bool(v) = self {
-            visitor.visit_bool(v)
-        } else {
-            Err(serde::de::Error::invalid_value(self.unexpected(), &visitor))
+        match self {
+            Value::Bool(v) => visitor.visit_bool(v),
+            Value::String(v) => {
+                match v.as_str() {
+                    "true" => visitor.visit_bool(true),
+                    "false" => visitor.visit_bool(false),
+                    _ => Err(serde::de::Error::invalid_value(
+                        Unexpected::Str(&v),
+                        &visitor,
+                    )),
+                }
+            }
+            _ => Err(serde::de::Error::invalid_value(self.unexpected(), &visitor)),
         }
     }
 
@@ -67,98 +77,79 @@ impl<'de> serde::Deserializer<'de> for Value {
     where
         V: Visitor<'de>,
     {
-        if let Value::Int(v) = self {
-            visitor.visit_i8(v as i8)
-        } else {
-            Err(serde::de::Error::invalid_value(self.unexpected(), &visitor))
-        }
+        let v = handle_integer(self, &visitor)?;
+        visitor.visit_i8(v)
     }
 
     fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        if let Value::Int(v) = self {
-            visitor.visit_i16(v as i16)
-        } else {
-            Err(serde::de::Error::invalid_value(self.unexpected(), &visitor))
-        }
+        let v = handle_integer(self, &visitor)?;
+        visitor.visit_i16(v)
     }
 
     fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        if let Value::Int(v) = self {
-            visitor.visit_i32(v as i32)
-        } else {
-            Err(serde::de::Error::invalid_value(self.unexpected(), &visitor))
-        }
+        let v = handle_integer(self, &visitor)?;
+        visitor.visit_i32(v)
     }
 
     fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        if let Value::String(v) = self {
-            visitor.visit_i64(v.parse().chain_err(|| "Failed to parse integer")?)
-        } else {
-            Err(serde::de::Error::invalid_value(self.unexpected(), &visitor))
-        }
+        let v = handle_integer(self, &visitor)?;
+        visitor.visit_i64(v)
     }
 
     fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        if let Value::Int(v) = self {
-            visitor.visit_u8(v as u8)
-        } else {
-            Err(serde::de::Error::invalid_value(self.unexpected(), &visitor))
-        }
+        let v = handle_integer(self, &visitor)?;
+        visitor.visit_u8(v)
     }
 
     fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        if let Value::Int(v) = self {
-            visitor.visit_u16(v as u16)
-        } else {
-            Err(serde::de::Error::invalid_value(self.unexpected(), &visitor))
-        }
+        let v = handle_integer(self, &visitor)?;
+        visitor.visit_u16(v)
     }
 
     fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        if let Value::String(v) = self {
-            visitor.visit_u32(v.parse().chain_err(|| "Failed to parse integer")?)
-        } else {
-            Err(serde::de::Error::invalid_value(self.unexpected(), &visitor))
-        }
+        let v = handle_integer(self, &visitor)?;
+        visitor.visit_u32(v)
     }
 
     fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        if let Value::String(v) = self {
-            visitor.visit_u64(v.parse().chain_err(|| "Failed to parse integer")?)
-        } else {
-            Err(serde::de::Error::invalid_value(self.unexpected(), &visitor))
-        }
+        let v = handle_integer(self, &visitor)?;
+        visitor.visit_u64(v)
     }
 
     fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        if let Value::Double(v) = self {
-            visitor.visit_f32(v as f32)
-        } else {
-            Err(serde::de::Error::invalid_value(self.unexpected(), &visitor))
+        match self {
+            Value::Double(v) => visitor.visit_f32(v as f32),
+            Value::String(v) => {
+                let x: Result<f32> = v.parse().map_err(|_| {
+                    serde::de::Error::invalid_value(Unexpected::Str(&v), &visitor)
+                });
+                visitor.visit_f32(x?)
+            }
+            _ => Err(serde::de::Error::invalid_value(self.unexpected(), &visitor)),
         }
     }
 
@@ -166,10 +157,15 @@ impl<'de> serde::Deserializer<'de> for Value {
     where
         V: Visitor<'de>,
     {
-        if let Value::Double(v) = self {
-            visitor.visit_f64(v)
-        } else {
-            Err(serde::de::Error::invalid_value(self.unexpected(), &visitor))
+        match self {
+            Value::Double(v) => visitor.visit_f64(v),
+            Value::String(v) => {
+                let x: Result<f64> = v.parse().map_err(|_| {
+                    serde::de::Error::invalid_value(Unexpected::Str(&v), &visitor)
+                });
+                visitor.visit_f64(x?)
+            }
+            _ => Err(serde::de::Error::invalid_value(self.unexpected(), &visitor)),
         }
     }
 
@@ -456,7 +452,7 @@ impl<'de> MapAccess<'de> for MapDeserializer {
         match self.iter.next() {
             Some((key, value)) => {
                 self.value = Some(value);
-                seed.deserialize(key.into_deserializer()).map(Some)
+                seed.deserialize(Value::String(key)).map(Some)
             }
             None => Ok(None),
         }
@@ -512,7 +508,7 @@ impl<'de> EnumAccess<'de> for EnumDeserializer {
         V: DeserializeSeed<'de>,
     {
         let value = self.value;
-        let variant = self.variant.into_deserializer();
+        let variant = Value::String(self.variant);
         seed.deserialize(variant).map(|v| (v, value))
     }
 }
@@ -556,5 +552,40 @@ impl<'de> VariantAccess<'de> for Value {
         V: Visitor<'de>,
     {
         self.deserialize_struct("", fields, visitor)
+    }
+}
+
+trait FromI32 {
+    fn from_i32(v: i32) -> Self;
+}
+
+macro_rules! impl_from_i32 {
+    ($($ty:ty)*) => {
+        $(
+            impl FromI32 for $ty {
+                #[inline]
+                fn from_i32(v: i32) -> $ty {
+                    v as $ty
+                }
+            }
+        )*
+    }
+}
+
+impl_from_i32!(u8 u16 u32 u64 i8 i16 i32 i64);
+
+fn handle_integer<'de, T, V>(value: Value, visitor: &V) -> Result<T>
+where
+    T: FromI32 + std::str::FromStr,
+    V: Visitor<'de>,
+{
+    match value {
+        Value::Int(v) => Ok(T::from_i32(v)),
+        Value::String(v) => {
+            v.parse().map_err(|_| {
+                serde::de::Error::invalid_value(Unexpected::Str(&v), visitor)
+            })
+        }
+        _ => Err(serde::de::Error::invalid_value(value.unexpected(), visitor)),
     }
 }

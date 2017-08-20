@@ -367,8 +367,7 @@ fn rejects_maps_with_unsupported_keys() {
 
 #[test]
 fn writes_variant_as_one_member_struct() {
-    #[derive(Serialize)]
-    #[derive(Debug)]
+    #[derive(Debug, Serialize)]
     enum Helper {
         Foo,
         Bar(i32),
