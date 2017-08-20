@@ -1,6 +1,7 @@
 use std;
 use std::collections::HashMap;
 use base64;
+use serde::de::Unexpected;
 use xml::escape::escape_str_pcdata;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -13,6 +14,21 @@ pub enum Value {
     Base64(Vec<u8>),
     Array(Vec<Value>),
     Struct(HashMap<String, Value>),
+}
+
+impl Value {
+    pub fn unexpected(&self) -> Unexpected {
+        match *self {
+            Value::Int(v) => Unexpected::Signed(v as i64),
+            Value::Bool(v) => Unexpected::Bool(v),
+            Value::String(ref v) => Unexpected::Str(&v),
+            Value::Double(v) => Unexpected::Float(v),
+            Value::DateTime(_) => Unexpected::Other("dateTime.iso8601"),
+            Value::Base64(ref v) => Unexpected::Bytes(&v),
+            Value::Array(_) => Unexpected::Seq,
+            Value::Struct(_) => Unexpected::Map,
+        }
+    }
 }
 
 pub type Params = Vec<Value>;
