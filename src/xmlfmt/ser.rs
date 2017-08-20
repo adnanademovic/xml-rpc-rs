@@ -294,8 +294,15 @@ impl serde::ser::SerializeMap for SerializeMap {
         T: Serialize,
     {
         match to_value(&key)? {
+            Value::Bool(v) => self.next_key = Some(v.to_string()),
+            Value::Int(v) => self.next_key = Some(v.to_string()),
+            Value::Double(v) => self.next_key = Some(v.to_string()),
             Value::String(s) => self.next_key = Some(s),
-            _ => bail!(ErrorKind::UnsupportedData("Key must be a string.".into())),
+            _ => {
+                bail!(ErrorKind::UnsupportedData(
+                    "Key must be a bool, int, float, char or string.".into(),
+                ))
+            }
         };
         Ok(())
     }

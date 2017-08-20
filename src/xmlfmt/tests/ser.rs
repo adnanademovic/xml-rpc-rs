@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use serde::Serialize;
+use serde_bytes::Bytes;
 use super::super::ser::Serializer;
 use super::super::Value;
 
@@ -96,6 +97,14 @@ fn writes_strings() {
             .serialize(Serializer {})
             .unwrap(),
         Value::String("string object".into())
+    );
+}
+
+#[test]
+fn writes_bytes_as_base64() {
+    assert_eq!(
+        Bytes::new(b"0123").serialize(Serializer {}).unwrap(),
+        Value::Base64(vec![48, 49, 50, 51])
     );
 }
 
@@ -254,6 +263,106 @@ fn writes_map_as_struct() {
         data.serialize(Serializer {}).unwrap(),
         Value::Struct(members)
     );
+}
+
+#[test]
+fn map_accepts_string_keys() {
+    let mut data = HashMap::new();
+    data.insert(String::from("foo"), vec![44i8, 12]);
+    data.insert(String::from("bar"), vec![]);
+    data.insert(String::from("baz"), vec![-3, 44, 28]);
+
+    let mut members = HashMap::new();
+    members.insert(
+        "foo".into(),
+        Value::Array(vec![Value::Int(44), Value::Int(12)]),
+    );
+    members.insert("bar".into(), Value::Array(vec![]));
+    members.insert(
+        "baz".into(),
+        Value::Array(vec![Value::Int(-3), Value::Int(44), Value::Int(28)]),
+    );
+
+    assert_eq!(
+        data.serialize(Serializer {}).unwrap(),
+        Value::Struct(members)
+    );
+}
+
+#[test]
+fn map_accepts_integer_keys() {
+    let mut data = HashMap::new();
+    data.insert(12, vec![44i8, 12]);
+    data.insert(-33, vec![]);
+    data.insert(44, vec![-3, 44, 28]);
+
+    let mut members = HashMap::new();
+    members.insert(
+        "12".into(),
+        Value::Array(vec![Value::Int(44), Value::Int(12)]),
+    );
+    members.insert("-33".into(), Value::Array(vec![]));
+    members.insert(
+        "44".into(),
+        Value::Array(vec![Value::Int(-3), Value::Int(44), Value::Int(28)]),
+    );
+
+    assert_eq!(
+        data.serialize(Serializer {}).unwrap(),
+        Value::Struct(members)
+    );
+}
+
+#[test]
+fn map_accepts_char_keys() {
+    let mut data = HashMap::new();
+    data.insert('a', vec![44i8, 12]);
+    data.insert('b', vec![]);
+    data.insert('c', vec![-3, 44, 28]);
+
+    let mut members = HashMap::new();
+    members.insert(
+        "a".into(),
+        Value::Array(vec![Value::Int(44), Value::Int(12)]),
+    );
+    members.insert("b".into(), Value::Array(vec![]));
+    members.insert(
+        "c".into(),
+        Value::Array(vec![Value::Int(-3), Value::Int(44), Value::Int(28)]),
+    );
+
+    assert_eq!(
+        data.serialize(Serializer {}).unwrap(),
+        Value::Struct(members)
+    );
+}
+
+#[test]
+fn map_accepts_boolean_keys() {
+    let mut data = HashMap::new();
+    data.insert(true, vec![44i8, 12]);
+    data.insert(false, vec![]);
+
+    let mut members = HashMap::new();
+    members.insert(
+        "true".into(),
+        Value::Array(vec![Value::Int(44), Value::Int(12)]),
+    );
+    members.insert("false".into(), Value::Array(vec![]));
+
+    assert_eq!(
+        data.serialize(Serializer {}).unwrap(),
+        Value::Struct(members)
+    );
+}
+
+#[test]
+fn rejects_maps_with_unsupported_keys() {
+    let mut data = HashMap::new();
+    data.insert(Some(4), vec![44i8, 12]);
+    data.insert(Some(3), vec![]);
+    data.insert(Some(2), vec![-3, 44, 28]);
+    data.serialize(Serializer {}).unwrap_err();
 }
 
 #[test]
