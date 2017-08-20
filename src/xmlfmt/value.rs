@@ -1,6 +1,7 @@
 use std;
 use std::collections::HashMap;
 use base64;
+use xml::escape::escape_str_pcdata;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
@@ -94,7 +95,9 @@ impl ToXml for Value {
                     if v { 1 } else { 0 }
                 )
             }
-            Value::String(ref v) => format!("<value><string>{}</string></value>", v),
+            Value::String(ref v) => {
+                format!("<value><string>{}</string></value>", escape_str_pcdata(v))
+            }
             Value::Double(v) => format!("<value><double>{}</double></value>", v),
             Value::DateTime(ref v) => {
                 format!("<value><dateTime.iso8601>{}</dateTime.iso8601></value>", v)
