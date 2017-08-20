@@ -6,9 +6,6 @@ name = "xml-rpc"
 readme = "README.md"
 repository = "https://github.com/adnanademovic/xml-rpc-rs"
 version = "0.1.0"
-[[bin]]
-name = "echo"
-path = "examples/echo.rs"
 
 [dependencies]
 base64 = "0.6.0"
@@ -22,7 +19,3 @@ tokio-core = "0.1.9"
 [dependencies.hyper]
 default-features = false
 version = "0.11.2"
-
-[lib]
-name = "xml_rpc"
-path = "src/lib.rs"
