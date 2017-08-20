@@ -1,6 +1,5 @@
-use std::fmt::Debug;
 use std::collections::HashMap;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use super::*;
 
 static BAD_DATA: &'static str = "Bad data provided";
@@ -109,8 +108,8 @@ fn reads_response() {
         </param>
     </params>
 </methodResponse>"#;
-    let data = parse::response_value(data.as_bytes()).expect(BAD_DATA);
-    assert_eq!(data, ResponseValue::Success { params: params });
+    let data = parse::response(data.as_bytes()).expect(BAD_DATA);
+    assert_eq!(data, Ok(params));
 }
 
 #[test]
@@ -132,13 +131,13 @@ fn reads_fault() {
         </value>
     </fault>
 </methodResponse>"#;
-    let data = parse::response_value(data.as_bytes()).expect(BAD_DATA);
+    let data = parse::response(data.as_bytes()).expect(BAD_DATA);
     assert_eq!(
         data,
-        ResponseValue::Fault {
+        Err(Fault {
             code: 4,
             message: "Too many parameters.".into(),
-        }
+        })
     );
 }
 
@@ -171,22 +170,13 @@ fn reads_call() {
         </param>
     </params>
 </methodCall>"#;
-    let data = parse::call_value(data.as_bytes()).expect(BAD_DATA);
+    let data = parse::call(data.as_bytes()).expect(BAD_DATA);
     assert_eq!(data.name, String::from("foobar"));
     assert_eq!(
         data.params,
         vec![Value::String("South Dakota".into()), Value::Struct(fields)]
     );
 }
-
-#[derive(Debug, PartialEq, Deserialize, Serialize)]
-struct TestStruct {
-    foo: i32,
-    bar: String,
-}
-
-#[derive(Debug, PartialEq, Deserialize, Serialize)]
-struct TestStructTuple(String, TestStruct);
 
 #[test]
 fn reads_array_structure_xml_value() {
@@ -203,102 +193,20 @@ fn reads_array_structure_xml_value() {
     assert_eq!(data, vec![33, -12, 44]);
 }
 
-#[test]
-fn reads_response_structure() {
-    let data = r#"<?xml version="1.0"?>
-<methodResponse>
-    <params>
-        <param>
-            <value><string>South Dakota</string></value>
-        </param>
-        <param>
-            <value>
-                <struct>
-                    <member>
-                        <name>foo</name>
-                        <value><i4>42</i4></value>
-                    </member>
-                    <member>
-                        <name>bar</name>
-                        <value><string>baz</string></value>
-                    </member>
-                </struct>
-            </value>
-        </param>
-    </params>
-</methodResponse>"#;
-    let resp: Response<TestStructTuple> = parse::response(data.as_bytes()).expect(BAD_DATA);
-    let data = match resp {
-        Response::Success(v) => v,
-        _ => panic!("Unespected faulty response!"),
-    };
-    assert_eq!(data.0, String::from("South Dakota"));
-    assert_eq!(data.1.foo, 42);
-    assert_eq!(data.1.bar, String::from("baz"));
-}
-
-#[test]
-fn reads_call_structure() {
-    let data = r#"<?xml version="1.0"?>
-<methodCall>
-    <methodName>foobar</methodName>
-    <params>
-        <param>
-            <value><string>South Dakota</string></value>
-        </param>
-        <param>
-            <value>
-                <struct>
-                    <member>
-                        <name>foo</name>
-                        <value><i4>42</i4></value>
-                    </member>
-                    <member>
-                        <name>bar</name>
-                        <value><string>baz</string></value>
-                    </member>
-                </struct>
-            </value>
-        </param>
-    </params>
-</methodCall>"#;
-    let Call::<TestStructTuple> { name, data } = parse::call(data.as_bytes()).expect(BAD_DATA);
-    assert_eq!(name, String::from("foobar"));
-    assert_eq!(data.0, String::from("South Dakota"));
-    assert_eq!(data.1.foo, 42);
-    assert_eq!(data.1.bar, String::from("baz"));
-}
-
 fn ser_and_de(value: Value) {
-    ser_and_de_response_value(ResponseValue::Success { params: vec![value] });
+    ser_and_de_response_value(Ok(vec![value]));
 }
 
-fn ser_and_de_call_value(value: CallValue) {
-    let data = format!("{}", value);
-    let data = parse::call_value(data.as_bytes()).expect(BAD_DATA);
-    assert_eq!(value, data);
-}
-
-fn ser_and_de_response_value(value: ResponseValue) {
-    let data = format!("{}", value);
-    let data = parse::response_value(data.as_bytes()).expect(BAD_DATA);
-    assert_eq!(value, data);
-}
-
-fn ser_and_de_call<'a, T>(value: Call<T>)
-where
-    T: Debug + Serialize + Deserialize<'a> + PartialEq,
-{
-    let data = format!("{}", value);
+fn ser_and_de_call_value(value: Call) {
+    use super::value::ToXml;
+    let data = value.to_xml();
     let data = parse::call(data.as_bytes()).expect(BAD_DATA);
     assert_eq!(value, data);
 }
 
-fn ser_and_de_response<'a, T>(value: Response<T>)
-where
-    T: Debug + Serialize + Deserialize<'a> + PartialEq,
-{
-    let data = format!("{}", value);
+fn ser_and_de_response_value(value: Response) {
+    use super::value::ToXml;
+    let data = value.to_xml();
     let data = parse::response(data.as_bytes()).expect(BAD_DATA);
     assert_eq!(value, data);
 }
@@ -338,15 +246,15 @@ fn writes_response() {
     fields.insert("foo".into(), Value::Int(42));
     fields.insert("bar".into(), Value::String("baz".into()));
     let params = vec![Value::String("South Dakota".into()), Value::Struct(fields)];
-    ser_and_de_response_value(ResponseValue::Success { params: params })
+    ser_and_de_response_value(Ok(params))
 }
 
 #[test]
 fn writes_fault() {
-    ser_and_de_response_value(ResponseValue::Fault {
+    ser_and_de_response_value(Err(Fault {
         code: 4,
         message: "Too many parameters.".into(),
-    });
+    }));
 }
 
 #[test]
@@ -354,58 +262,8 @@ fn writes_call() {
     let mut fields = HashMap::<String, Value>::new();
     fields.insert("foo".into(), Value::Int(42));
     fields.insert("bar".into(), Value::String("baz".into()));
-    ser_and_de_call_value(CallValue {
+    ser_and_de_call_value(Call {
         name: String::from("foobar"),
         params: vec![Value::String("South Dakota".into()), Value::Struct(fields)],
-    });
-}
-
-#[test]
-fn writes_response_structure() {
-    ser_and_de_response(Response::Success((
-        String::from("South Dakota"),
-        TestStruct {
-            foo: 42,
-            bar: "baz".into(),
-        },
-    )));
-    ser_and_de_response(Response::Success(TestStructTuple(
-        String::from("South Dakota"),
-        TestStruct {
-            foo: 42,
-            bar: "baz".into(),
-        },
-    )));
-}
-
-#[test]
-fn writes_call_structure() {
-    ser_and_de_call(Call {
-        name: "foobar".into(),
-        data: (
-            String::from("South Dakota"),
-            TestStruct {
-                foo: 42,
-                bar: "baz".into(),
-            },
-        ),
-    });
-    ser_and_de_call(Call {
-        name: "foobar".into(),
-        data: TestStructTuple(
-            String::from("South Dakota"),
-            TestStruct {
-                foo: 42,
-                bar: "baz".into(),
-            },
-        ),
-    });
-}
-
-#[test]
-fn writes_fault_structure() {
-    ser_and_de_response::<()>(Response::Fault {
-        code: 4,
-        message: "Too many parameters.".into(),
     });
 }

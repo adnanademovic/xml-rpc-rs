@@ -1,9 +1,10 @@
+use std;
 use futures::{Future, Stream};
 use hyper::{self, Client as HyperClient, Method, Request, Uri};
 use serde::{Deserialize, Serialize};
 use tokio_core::reactor::Core;
 use super::error::{Result, ResultExt};
-use super::xmlfmt::{Call, CallValue, Response, ResponseValue, parse};
+use super::xmlfmt::{Call, Fault, Params, Response, parse, from_params, into_params};
 
 pub struct Client {
     core: Core,
@@ -20,61 +21,42 @@ impl Client {
         })
     }
 
-    pub fn call<Treq, Tres>(&mut self, uri: &Uri, req: Treq) -> Result<Tres>
+    pub fn call_value<Tkey>(&mut self, uri: &Uri, name: Tkey, params: Params) -> Result<Response>
     where
-        Treq: Into<Req>,
-        Res: Into<Result<Tres>>,
+        Tkey: Into<String>,
     {
+        use super::xmlfmt::value::ToXml;
         let mut request = Request::new(Method::Post, uri.clone());
-        request.set_body(req.into().data);
+        request.set_body(
+            Call {
+                name: name.into(),
+                params,
+            }.to_xml(),
+        );
         let work = self.client.request(request).and_then(|res| {
             res.body().concat2().map(|chunk| chunk.to_vec())
         });
-        let response = Res {
-            data: self.core.run(work).chain_err(
-                || "Failed to run the HTTP request within Tokio Core.",
-            )?,
-        };
-        response.into()
+        let response = self.core.run(work).chain_err(
+            || "Failed to run the HTTP request within Tokio Core.",
+        )?;
+        parse::response(response.as_slice()).map_err(Into::into)
     }
-}
 
-#[doc(hidden)]
-pub struct Req {
-    data: String,
-}
-
-impl From<CallValue> for Req {
-    fn from(value: CallValue) -> Req {
-        Req { data: format!("{}", value) }
-    }
-}
-
-impl<T> From<Call<T>> for Req
-where
-    T: Serialize,
-{
-    fn from(value: Call<T>) -> Req {
-        Req { data: format!("{}", value) }
-    }
-}
-
-#[doc(hidden)]
-pub struct Res {
-    data: Vec<u8>,
-}
-
-impl Into<Result<ResponseValue>> for Res {
-    fn into(self) -> Result<ResponseValue> {
-        parse::response_value(self.data.as_slice()).map_err(Into::into)
-    }
-}
-
-impl<'a, T> Into<Result<Response<T>>> for Res
-where
-    T: Deserialize<'a>,
-{
-    fn into(self) -> Result<Response<T>> {
-        parse::response(self.data.as_slice()).map_err(Into::into)
+    pub fn call<'a, Tkey, Treq, Tres>(
+        &mut self,
+        uri: &Uri,
+        name: Tkey,
+        req: Treq,
+    ) -> Result<std::result::Result<Tres, Fault>>
+    where
+        Tkey: Into<String>,
+        Treq: Serialize,
+        Tres: Deserialize<'a>,
+    {
+        match self.call_value(uri, name, into_params(req)?) {
+            Ok(Ok(v)) => from_params(v).map(Ok).map_err(Into::into),
+            Ok(Err(v)) => Ok(Err(v)),
+            Err(v) => Err(v),
+        }
     }
 }

@@ -1,7 +1,11 @@
 use serde::{de, ser};
-use std::fmt::Display;
+use std::fmt::{self, Display};
 
 error_chain!{
+    foreign_links {
+        Fmt(fmt::Error);
+    }
+
     errors {
         Decoding(t: String) {
             description("Issue while decoding data structure")

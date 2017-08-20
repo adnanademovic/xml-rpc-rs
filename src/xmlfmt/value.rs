@@ -1,8 +1,6 @@
 use std;
 use std::collections::HashMap;
 use base64;
-use serde::Serialize;
-use super::error::Result;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
@@ -16,111 +14,67 @@ pub enum Value {
     Struct(HashMap<String, Value>),
 }
 
-impl Value {
-    pub fn from_struct<T: Serialize>(v: T) -> Result<Value> {
-        use super::ser::Serializer;
-        v.serialize(Serializer {})
-    }
+pub type Params = Vec<Value>;
+
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+pub struct Fault {
+    #[serde(rename = "faultCode")]
+    pub code: i32,
+    #[serde(rename = "faultString")]
+    pub message: String,
 }
 
-pub fn params<T: Serialize>(v: T) -> Result<Vec<Value>> {
-    Ok(match Value::from_struct(v)? {
-        Value::Array(params) => params,
-        data => vec![data],
-    })
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct CallValue {
-    pub name: String,
-    pub params: Vec<Value>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct Call<T> {
-    pub name: String,
-    pub data: T,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum ResponseValue {
-    Success { params: Vec<Value> },
-    Fault { code: i32, message: String },
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum Response<T> {
-    Success(T),
-    Fault { code: i32, message: String },
-}
-
-impl<T> std::fmt::Display for Call<T>
-where
-    T: Serialize,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let data = Value::from_struct(&self.data).map_err(|_| std::fmt::Error)?;
-        match data {
-            Value::Array(params) => {
-                CallValue {
-                    name: self.name.clone(),
-                    params,
-                }
-            }
-            _ => CallValue {
-                name: self.name.clone(),
-                params: vec![data],
-            },
-        }.fmt(f)
-    }
-}
-
-impl std::fmt::Display for CallValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, include_str!("templates/call_1.xml"), name = self.name)?;
-        for param in &self.params {
-            write!(f, "<param>{}</param>", param)?;
+impl Fault {
+    pub fn new<T>(code: i32, message: T) -> Fault
+    where
+        T: Into<String>,
+    {
+        Fault {
+            code,
+            message: message.into(),
         }
-        write!(f, include_str!("templates/call_2.xml"))
     }
 }
 
-impl<T> std::fmt::Display for Response<T>
-where
-    T: Serialize,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let ref value = match *self {
-            Response::Fault { code, ref message } => {
-                return ResponseValue::Fault {
-                    code,
-                    message: message.clone(),
-                }.fmt(f)
-            }
-            Response::Success(ref v) => v,
-        };
-        let data = Value::from_struct(value).map_err(|_| std::fmt::Error)?;
-        match data {
-            Value::Array(params) => ResponseValue::Success { params },
-            _ => ResponseValue::Success { params: vec![data] },
-        }.fmt(f)
+pub type Response = std::result::Result<Params, Fault>;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Call {
+    pub name: String,
+    pub params: Params,
+}
+
+pub trait ToXml {
+    fn to_xml(&self) -> String;
+}
+
+impl ToXml for Call {
+    fn to_xml(&self) -> String {
+        format!(
+            include_str!("templates/call.xml"),
+            name = self.name,
+            params = self.params
+                .iter()
+                .map(|param| format!("<param>{}</param>", param.to_xml()))
+                .collect::<String>()
+        )
     }
 }
 
-impl std::fmt::Display for ResponseValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-
+impl ToXml for Response {
+    fn to_xml(&self) -> String {
         match *self {
-            ResponseValue::Success { ref params } => {
-                write!(f, include_str!("templates/response_success_1.xml"))?;
-                for param in params {
-                    write!(f, "<param>{}</param>", param)?;
-                }
-                write!(f, include_str!("templates/response_success_2.xml"))
+            Ok(ref params) => {
+                format!(
+                    include_str!("templates/response_success.xml"),
+                    params = params
+                        .iter()
+                        .map(|param| format!("<param>{}</param>", param.to_xml()))
+                        .collect::<String>()
+                )
             }
-            ResponseValue::Fault { code, ref message } => {
-                write!(
-                    f,
+            Err(Fault { code, ref message }) => {
+                format!(
                     include_str!("templates/response_fault.xml"),
                     code = code,
                     message = message
@@ -130,31 +84,41 @@ impl std::fmt::Display for ResponseValue {
     }
 }
 
-impl std::fmt::Display for Value {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "<value>")?;
+impl ToXml for Value {
+    fn to_xml(&self) -> String {
         match *self {
-            Value::Int(v) => write!(f, "<i4>{}</i4>", v),
-            Value::Bool(v) => write!(f, "<boolean>{}</boolean>", if v { 1 } else { 0 }),
-            Value::String(ref v) => write!(f, "<string>{}</string>", v),
-            Value::Double(v) => write!(f, "<double>{}</double>", v),
-            Value::DateTime(ref v) => write!(f, "<dateTime.iso8601>{}</dateTime.iso8601>", v),
-            Value::Base64(ref v) => write!(f, "<base64>{}</base64>", base64::encode(v)),
+            Value::Int(v) => format!("<value><i4>{}</i4></value>", v),
+            Value::Bool(v) => {
+                format!(
+                    "<value><boolean>{}</boolean></value>",
+                    if v { 1 } else { 0 }
+                )
+            }
+            Value::String(ref v) => format!("<value><string>{}</string></value>", v),
+            Value::Double(v) => format!("<value><double>{}</double></value>", v),
+            Value::DateTime(ref v) => {
+                format!("<value><dateTime.iso8601>{}</dateTime.iso8601></value>", v)
+            }
+            Value::Base64(ref v) => {
+                format!("<value><base64>{}</base64></value>", base64::encode(v))
+            }
             Value::Array(ref v) => {
-                write!(f, "<array><data>")?;
-                for item in v {
-                    item.fmt(f)?;
-                }
-                write!(f, "</data></array>")
+                format!(
+                    "<value><array><data>{}</data></array></value>",
+                    v.iter().map(Value::to_xml).collect::<String>()
+                )
             }
             Value::Struct(ref v) => {
-                write!(f, "<struct>")?;
-                for (ref key, ref value) in v {
-                    write!(f, "<member><name>{}</name>{}</member>", key, value)?;
-                }
-                write!(f, "</struct>")
+                format!(
+                    "<value><struct>{}</struct></value>",
+                    v.iter()
+                        .map(|(ref key, ref value)| {
+                            format!("<member><name>{}</name>{}</member>", key, value.to_xml())
+                        })
+                        .collect::<String>()
+                )
             }
-        }?;
-        write!(f, "</value>")
+        }
+
     }
 }

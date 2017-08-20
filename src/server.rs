@@ -7,55 +7,27 @@ use hyper::server::{Http, Request, Response as HyperResponse, Service as HyperSe
 use serde::{Deserialize, Serialize};
 
 use super::error::{Result, ResultExt};
-use super::xmlfmt::{Value, CallValue, ResponseValue, error, parse, value};
+use super::xmlfmt::{Value, Fault, Call, Response, error, parse, from_params, into_params};
 
-pub struct HandlerError {
-    pub code: i32,
-    pub message: String,
-}
-
-impl HandlerError {
-    fn new<T>(code: i32, message: T) -> HandlerError
-    where
-        T: Into<String>,
-    {
-        HandlerError {
-            code,
-            message: message.into(),
-        }
-    }
-}
-
-pub type HandlerResult = std::result::Result<Vec<Value>, HandlerError>;
-
-impl Into<ResponseValue> for HandlerResult {
-    fn into(self) -> ResponseValue {
-        match self {
-            Ok(params) => ResponseValue::Success { params },
-            Err(HandlerError { code, message }) => ResponseValue::Fault { code, message },
-        }
-    }
-}
-
-type Handler = Box<Fn(Vec<Value>) -> HandlerResult + Send + Sync>;
+type Handler = Box<Fn(Vec<Value>) -> Response + Send + Sync>;
 type HandlerMap = HashMap<String, Handler>;
 
-pub fn on_decode_fail(err: error::Error) -> HandlerResult {
-    Err(HandlerError::new(
+pub fn on_decode_fail(err: error::Error) -> Response {
+    Err(Fault::new(
         400,
         format!("Failed to decode request: {}", err),
     ))
 }
 
-pub fn on_encode_fail(err: error::Error) -> HandlerResult {
-    Err(HandlerError::new(
+pub fn on_encode_fail(err: error::Error) -> Response {
+    Err(Fault::new(
         500,
         format!("Failed to encode response: {}", err),
     ))
 }
 
-fn on_missing_method(_: Vec<Value>) -> HandlerResult {
-    Err(HandlerError::new(404, "Requested method does not exist"))
+fn on_missing_method(_: Vec<Value>) -> Response {
+    Err(Fault::new(404, "Requested method does not exist"))
 }
 
 pub struct Server {
@@ -74,7 +46,7 @@ impl Server {
     pub fn register_value<K, T>(&mut self, name: K, handler: T)
     where
         K: Into<String>,
-        T: Fn(Vec<Value>) -> HandlerResult + Send + Sync + 'static,
+        T: Fn(Vec<Value>) -> Response + Send + Sync + 'static,
     {
         self.handlers.insert(name.into(), Box::new(handler));
     }
@@ -89,20 +61,17 @@ impl Server {
         K: Into<String>,
         Treq: Deserialize<'a>,
         Tres: Serialize,
-        Thandler: Fn(Treq) -> std::result::Result<Tres, HandlerError> + Send + Sync + 'static,
-        Tef: Fn(error::Error) -> HandlerResult + Send + Sync + 'static,
-        Tdf: Fn(error::Error) -> HandlerResult + Send + Sync + 'static,
+        Thandler: Fn(Treq) -> std::result::Result<Tres, Fault> + Send + Sync + 'static,
+        Tef: Fn(error::Error) -> Response + Send + Sync + 'static,
+        Tdf: Fn(error::Error) -> Response + Send + Sync + 'static,
     {
         self.register_value(name, move |req| {
-            let params = match parse::params(req) {
+            let params = match from_params(req) {
                 Ok(v) => v,
                 Err(err) => return decode_fail(err),
             };
             let response = handler(params)?;
-            match value::params(response) {
-                Ok(v) => Ok(v),
-                Err(err) => return encode_fail(err),
-            }
+            into_params(response).or_else(|v| encode_fail(v))
         });
     }
 
@@ -111,14 +80,14 @@ impl Server {
         K: Into<String>,
         Treq: Deserialize<'a>,
         Tres: Serialize,
-        Thandler: Fn(Treq) -> std::result::Result<Tres, HandlerError> + Send + Sync + 'static,
+        Thandler: Fn(Treq) -> std::result::Result<Tres, Fault> + Send + Sync + 'static,
     {
         self.register(name, handler, on_encode_fail, on_decode_fail);
     }
 
     pub fn set_on_missing<T>(&mut self, handler: T)
     where
-        T: Fn(Vec<Value>) -> HandlerResult + Send + Sync + 'static,
+        T: Fn(Vec<Value>) -> Response + Send + Sync + 'static,
     {
         self.on_missing_method = Box::new(handler);
     }
@@ -132,10 +101,10 @@ impl Server {
         Ok(())
     }
 
-    fn handle(&self, req: CallValue) -> ResponseValue {
+    fn handle(&self, req: Call) -> Response {
         self.handlers.get(&req.name).unwrap_or(
             &self.on_missing_method,
-        )(req.params).into()
+        )(req.params)
     }
 }
 
@@ -165,14 +134,15 @@ impl HyperService for Service {
             .concat2()
             .join(futures::future::ok(self.server.clone()))
             .and_then(|(chunk, server)| {
+                use super::xmlfmt::value::ToXml;
                 // TODO: use the right error type
-                let call: CallValue = match parse::call_value(chunk.as_ref()) {
+                let call: Call = match parse::call(chunk.as_ref()) {
                     Ok(data) => data,
                     Err(_err) => return futures::future::err(hyper::error::Error::Incomplete),
                 };
                 let res = server.handle(call);
                 let mut response = HyperResponse::new();
-                response.set_body(format!("{}", res));
+                response.set_body(res.to_xml());
                 futures::future::ok(response)
 
             })

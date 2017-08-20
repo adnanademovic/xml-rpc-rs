@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use base64;
 use serde::Deserialize;
 use serde_xml_rs::deserialize;
-use super::{Call, Response, Value, CallValue, ResponseValue};
+use super::{Call, Fault, Response, Value};
 use super::error::{Result, ResultExt};
 
 #[allow(dead_code)]
@@ -12,34 +12,16 @@ pub fn xml<T: std::io::Read>(r: T) -> Result<Value> {
     data.into()
 }
 
-pub fn call_value<T: std::io::Read>(r: T) -> Result<CallValue> {
+pub fn call<T: std::io::Read>(r: T) -> Result<Call> {
     let data: XmlCall = deserialize(r).chain_err(|| "Failed to parse XML-RPC call.")?;
     data.into()
 }
 
-pub fn response_value<T: std::io::Read>(r: T) -> Result<ResponseValue> {
+pub fn response<T: std::io::Read>(r: T) -> Result<Response> {
     let data: XmlResponse = deserialize(r).chain_err(
         || "Failed to parse XML-RPC response.",
     )?;
     data.into()
-}
-
-pub fn call<'a, T: std::io::Read, D: Deserialize<'a>>(r: T) -> Result<Call<D>> {
-    let CallValue { name, params: p } = call_value(r)?;
-    Ok(Call {
-        name: name,
-        data: params(p)?,
-    })
-}
-
-pub fn response<'a, T: std::io::Read, D: Deserialize<'a>>(r: T) -> Result<Response<D>> {
-    match response_value(r)? {
-        ResponseValue::Success { params: p } => Ok(Response::Success(params(p)?)),
-        ResponseValue::Fault { code, message } => Ok(Response::Fault {
-            code: code,
-            message: message,
-        }),
-    }
 }
 
 pub fn params<'a, D: Deserialize<'a>>(mut params: Vec<Value>) -> Result<D> {
@@ -107,10 +89,10 @@ struct XmlCall {
     pub params: XmlParams,
 }
 
-impl Into<Result<CallValue>> for XmlCall {
-    fn into(self) -> Result<CallValue> {
+impl Into<Result<Call>> for XmlCall {
+    fn into(self) -> Result<Call> {
         let params: Result<Vec<Value>> = self.params.into();
-        Ok(CallValue {
+        Ok(Call {
             name: self.name,
             params: params?,
         })
@@ -125,34 +107,21 @@ enum XmlResponseResult {
     Failure { value: XmlValue },
 }
 
-impl Into<Result<ResponseValue>> for XmlResponseResult {
-    fn into(self) -> Result<ResponseValue> {
+impl Into<Result<Response>> for XmlResponseResult {
+    fn into(self) -> Result<Response> {
         match self {
             XmlResponseResult::Success(params) => {
                 let params: Result<Vec<Value>> = params.into();
-                Ok(ResponseValue::Success { params: params? })
+                Ok(Ok(params?))
             }
             XmlResponseResult::Failure { value: v } => {
                 use serde::Deserialize;
 
-                #[derive(Deserialize)]
-                struct FaultStruct {
-                    #[serde(rename = "faultCode")]
-                    pub code: i32,
-                    #[serde(rename = "faultString")]
-                    pub message: String,
-                };
-
                 let val: Result<Value> = v.into();
-                let data = FaultStruct::deserialize(val?).chain_err(
+
+                Ok(Err(Fault::deserialize(val?).chain_err(
                     || "Failed to decode fault structure",
-                )?;
-
-                Ok(ResponseValue::Fault {
-                    code: data.code,
-                    message: data.message,
-                })
-
+                )?))
             }
         }
     }
@@ -164,8 +133,8 @@ enum XmlResponse {
     Response(XmlResponseResult),
 }
 
-impl Into<Result<ResponseValue>> for XmlResponse {
-    fn into(self) -> Result<ResponseValue> {
+impl Into<Result<Response>> for XmlResponse {
+    fn into(self) -> Result<Response> {
         match self {
             XmlResponse::Response(v) => v.into(),
         }

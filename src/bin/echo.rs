@@ -4,7 +4,7 @@ extern crate serde;
 extern crate serde_derive;
 
 use std::{net, thread};
-use xml_rpc::{xmlfmt, Server, Client};
+use xml_rpc::{Server, Client};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct TestStruct {
@@ -30,34 +30,10 @@ pub fn main() {
     };
     println!("Sending: {:?}", req);
     let uri = "http://localhost:8080/".parse().unwrap();
-    let res: xmlfmt::Response<TestStruct> = client
-        .call(
-            &uri,
-            xmlfmt::Call {
-                name: "echo".into(),
-                data: req.clone(),
-            },
-        )
-        .unwrap();
+    let res: Result<Result<TestStruct, _>, _> = client.call(&uri, "echo", req.clone());
     println!("Echo Received: {:?}", res);
-    let res: xmlfmt::Response<TestStruct> = client
-        .call(
-            &uri,
-            xmlfmt::Call {
-                name: "double".into(),
-                data: req.clone(),
-            },
-        )
-        .unwrap();
+    let res: Result<Result<TestStruct, _>, _> = client.call(&uri, "double", req.clone());
     println!("Double Received: {:?}", res);
-    let res: xmlfmt::Response<TestStruct> = client
-        .call(
-            &uri,
-            xmlfmt::Call {
-                name: "invalid".into(),
-                data: req.clone(),
-            },
-        )
-        .unwrap();
+    let res: Result<Result<TestStruct, _>, _> = client.call(&uri, "invalid", req.clone());
     println!("Invalid Received: {:?}", res);
 }
