@@ -17,8 +17,8 @@ extern crate xml;
 pub mod client;
 pub mod error;
 pub mod server;
-pub mod xmlfmt;
+mod xmlfmt;
 
 pub use client::Client;
 pub use server::Server;
-pub use xmlfmt::{Fault, Params, Response, Value};
+pub use xmlfmt::{Call, Fault, Params, Response, Value, from_params, into_params};

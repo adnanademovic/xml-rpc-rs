@@ -1,7 +1,6 @@
 use std;
 use std::collections::HashMap;
 use base64;
-use serde::Deserialize;
 use serde_xml_rs::deserialize;
 use super::{Call, Fault, Response, Value};
 use super::error::{Result, ResultExt};
@@ -23,17 +22,6 @@ pub fn response<T: std::io::Read>(r: T) -> Result<Response> {
     )?;
     data.into()
 }
-
-pub fn params<'a, D: Deserialize<'a>>(mut params: Vec<Value>) -> Result<D> {
-    let data = if params.len() == 1 {
-        params.pop().unwrap()
-    } else {
-        Value::Array(params)
-    };
-
-    D::deserialize(data).chain_err(|| "Failed to convert XML-RPC to structure.")
-}
-
 
 #[derive(Debug, PartialEq, Deserialize)]
 enum XmlValue {
