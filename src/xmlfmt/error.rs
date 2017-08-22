@@ -1,3 +1,4 @@
+#![allow(unknown_lints, unused_doc_comment)]
 use serde::{de, ser};
 use std::fmt::{self, Display};
 

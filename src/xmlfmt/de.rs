@@ -18,9 +18,9 @@ impl<'de> serde::Deserializer<'de> for Value {
         match self {
             Value::Int(v) => visitor.visit_i32(v),
             Value::Bool(v) => visitor.visit_bool(v),
+            Value::DateTime(v) |
             Value::String(v) => visitor.visit_string(v),
             Value::Double(v) => visitor.visit_f64(v),
-            Value::DateTime(v) => visitor.visit_string(v),
             Value::Base64(v) => visitor.visit_bytes(v.as_slice()),
             Value::Array(v) => {
                 let len = v.len();
@@ -350,19 +350,20 @@ impl<'de> serde::Deserializer<'de> for Value {
                         });
                     }
                 }
-                return Err(serde::de::Error::invalid_value(
+                Err(serde::de::Error::invalid_value(
                     Unexpected::Map,
                     &"map with a single key",
-                ));
+                ))
             }
             other => {
-                return Err(serde::de::Error::invalid_value(
+                Err(serde::de::Error::invalid_value(
                     other.unexpected(),
                     &"map with a single key",
-                ));
+                ))
             }
-        };
+        }
     }
+
     forward_to_deserialize_any! {
         identifier ignored_any
     }

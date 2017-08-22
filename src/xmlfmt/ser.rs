@@ -192,7 +192,7 @@ impl serde::Serializer for Serializer {
     }
 }
 
-fn to_value<T>(value: T) -> Result<Value, Error>
+fn to_value<T>(value: &T) -> Result<Value, Error>
 where
     T: Serialize,
 {

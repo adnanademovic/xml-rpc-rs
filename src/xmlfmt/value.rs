@@ -21,10 +21,10 @@ impl Value {
         match *self {
             Value::Int(v) => Unexpected::Signed(v as i64),
             Value::Bool(v) => Unexpected::Bool(v),
-            Value::String(ref v) => Unexpected::Str(&v),
+            Value::String(ref v) => Unexpected::Str(v),
             Value::Double(v) => Unexpected::Float(v),
             Value::DateTime(_) => Unexpected::Other("dateTime.iso8601"),
-            Value::Base64(ref v) => Unexpected::Bytes(&v),
+            Value::Base64(ref v) => Unexpected::Bytes(v),
             Value::Array(_) => Unexpected::Seq,
             Value::Struct(_) => Unexpected::Map,
         }
@@ -131,7 +131,7 @@ impl ToXml for Value {
                 format!(
                     "<value><struct>{}</struct></value>",
                     v.iter()
-                        .map(|(ref key, ref value)| {
+                        .map(|(key, value)| {
                             format!("<member><name>{}</name>{}</member>", key, value.to_xml())
                         })
                         .collect::<String>()

@@ -60,8 +60,7 @@ enum XmlValue {
 impl Into<Result<Value>> for XmlValue {
     fn into(self) -> Result<Value> {
         Ok(match self {
-            XmlValue::I4(v) => Value::Int(v),
-            XmlValue::Int(v) => Value::Int(v),
+            XmlValue::I4(v) | XmlValue::Int(v) => Value::Int(v),
             XmlValue::Bool(v) => Value::Bool(v != 0),
             XmlValue::Str(v) => Value::String(v),
             XmlValue::Double(v) => Value::Double(v.parse().chain_err(|| "Failed to parse double")?),

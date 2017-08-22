@@ -14,7 +14,7 @@ pub fn from_params<'a, T: Deserialize<'a>>(v: Params) -> error::Result<T> {
     parse::params(v)
 }
 
-pub fn into_params<T: Serialize>(v: T) -> error::Result<Params> {
+pub fn into_params<T: Serialize>(v: &T) -> error::Result<Params> {
     Ok(match v.serialize(ser::Serializer {})? {
         Value::Array(params) => params,
         data => vec![data],

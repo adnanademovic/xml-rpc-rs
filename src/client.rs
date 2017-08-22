@@ -53,7 +53,7 @@ impl Client {
         Treq: Serialize,
         Tres: Deserialize<'a>,
     {
-        match self.call_value(uri, name, into_params(req)?) {
+        match self.call_value(uri, name, into_params(&req)?) {
             Ok(Ok(v)) => from_params(v).map(Ok).map_err(Into::into),
             Ok(Err(v)) => Ok(Err(v)),
             Err(v) => Err(v),

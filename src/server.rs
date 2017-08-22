@@ -12,14 +12,14 @@ use super::xmlfmt::{Value, Fault, Call, Response, error, parse, from_params, int
 type Handler = Box<Fn(Vec<Value>) -> Response + Send + Sync>;
 type HandlerMap = HashMap<String, Handler>;
 
-pub fn on_decode_fail(err: error::Error) -> Response {
+pub fn on_decode_fail(err: &error::Error) -> Response {
     Err(Fault::new(
         400,
         format!("Failed to decode request: {}", err),
     ))
 }
 
-pub fn on_encode_fail(err: error::Error) -> Response {
+pub fn on_encode_fail(err: &error::Error) -> Response {
     Err(Fault::new(
         500,
         format!("Failed to encode response: {}", err),
@@ -35,12 +35,18 @@ pub struct Server {
     on_missing_method: Handler,
 }
 
-impl Server {
-    pub fn new() -> Server {
+impl Default for Server {
+    fn default() -> Self {
         Server {
             handlers: HashMap::new(),
             on_missing_method: Box::new(on_missing_method),
         }
+    }
+}
+
+impl Server {
+    pub fn new() -> Server {
+        Server::default()
     }
 
     pub fn register_value<K, T>(&mut self, name: K, handler: T)
@@ -62,16 +68,16 @@ impl Server {
         Treq: Deserialize<'a>,
         Tres: Serialize,
         Thandler: Fn(Treq) -> std::result::Result<Tres, Fault> + Send + Sync + 'static,
-        Tef: Fn(error::Error) -> Response + Send + Sync + 'static,
-        Tdf: Fn(error::Error) -> Response + Send + Sync + 'static,
+        Tef: Fn(&error::Error) -> Response + Send + Sync + 'static,
+        Tdf: Fn(&error::Error) -> Response + Send + Sync + 'static,
     {
         self.register_value(name, move |req| {
             let params = match from_params(req) {
                 Ok(v) => v,
-                Err(err) => return decode_fail(err),
+                Err(err) => return decode_fail(&err),
             };
             let response = handler(params)?;
-            into_params(response).or_else(|v| encode_fail(v))
+            into_params(&response).or_else(|v| encode_fail(&v))
         });
     }
 
@@ -112,22 +118,17 @@ struct Service {
     server: Arc<Server>,
 }
 
+type BodyFuture = futures::stream::Concat2<hyper::Body>;
+type ServerResultFuture = futures::future::FutureResult<Arc<Server>, hyper::Error>;
+type BodyAndServerFuture = futures::Join<BodyFuture, ServerResultFuture>;
+type ResponseResultFuture = futures::future::FutureResult<HyperResponse, hyper::Error>;
+type ChunkServerResponder = fn((hyper::Chunk, Arc<Server>)) -> ResponseResultFuture;
+
 impl HyperService for Service {
     type Request = Request;
     type Response = HyperResponse;
     type Error = hyper::Error;
-    type Future = futures::AndThen<
-        futures::Join<
-            futures::stream::Concat2<hyper::Body>,
-            futures::future::FutureResult<
-                Arc<Server>,
-                hyper::Error,
-            >,
-        >,
-        futures::future::FutureResult<Self::Response, Self::Error>,
-        fn((hyper::Chunk, Arc<Server>))
-           -> futures::future::FutureResult<Self::Response, Self::Error>,
-    >;
+    type Future = futures::AndThen<BodyAndServerFuture, ResponseResultFuture, ChunkServerResponder>;
 
     fn call(&self, req: Request) -> Self::Future {
         req.body()
