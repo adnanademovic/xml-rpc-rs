@@ -1,5 +1,5 @@
 #![allow(unknown_lints, unused_doc_comment)]
-use super::xmlfmt::error::{Error as FmtError, ErrorKind as FmtErrorKind};
+pub use super::xmlfmt::error::{Error as FmtError, ErrorKind as FmtErrorKind};
 
 error_chain!{
     links {
