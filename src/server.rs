@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use futures::{self, Future, Stream};
 use hyper;
-use hyper::server::{Http, Request, Response as HyperResponse, Service as HyperService};
+use hyper::server::{Http, Request, Response as HyperResponse, Service as HyperService,
+                    NewService as HyperNewService};
 use serde::{Deserialize, Serialize};
 
 use super::error::{Result, ResultExt};
@@ -98,19 +99,40 @@ impl Server {
         self.on_missing_method = Box::new(handler);
     }
 
-    pub fn run(self, uri: &std::net::SocketAddr) -> Result<()> {
-        let server = Arc::new(self);
-        let server_call = Http::new()
-            .bind(uri, move || Ok(Service { server: server.clone() }))
-            .chain_err(|| "Failed to bind port")?;
-        server_call.run().chain_err(|| "Failed to run server")?;
-        Ok(())
+    pub fn bind(self, uri: &std::net::SocketAddr) -> Result<BoundServer> {
+        Http::new()
+            .bind(uri, NewService::new(self))
+            .chain_err(|| "Failed to bind port")
+            .map(BoundServer::new)
     }
 
     fn handle(&self, req: Call) -> Response {
         self.handlers.get(&req.name).unwrap_or(
             &self.on_missing_method,
         )(req.params)
+    }
+}
+
+pub struct BoundServer {
+    server: hyper::Server<NewService, hyper::Body>,
+}
+
+impl BoundServer {
+    fn new(server: hyper::Server<NewService, hyper::Body>) -> BoundServer {
+        BoundServer { server }
+    }
+
+    pub fn run(self) -> Result<()> {
+        self.server.run().chain_err(|| "Failed to run server")
+    }
+
+    pub fn run_until<F>(self, shutdown_signal: F) -> Result<()>
+    where
+        F: futures::Future<Item = (), Error = ()>,
+    {
+        self.server.run_until(shutdown_signal).chain_err(
+            || "Failed to run server",
+        )
     }
 }
 
@@ -147,5 +169,26 @@ impl HyperService for Service {
                 futures::future::ok(response)
 
             })
+    }
+}
+
+struct NewService {
+    server: Arc<Server>,
+}
+
+impl NewService {
+    fn new(server: Server) -> NewService {
+        NewService { server: Arc::new(server) }
+    }
+}
+
+impl HyperNewService for NewService {
+    type Request = Request;
+    type Response = HyperResponse;
+    type Error = hyper::Error;
+    type Instance = Service;
+
+    fn new_service(&self) -> std::io::Result<Self::Instance> {
+        Ok(Service { server: self.server.clone() })
     }
 }

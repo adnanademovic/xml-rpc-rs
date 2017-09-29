@@ -1,5 +1,4 @@
 extern crate xml_rpc;
-extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 
@@ -27,7 +26,7 @@ pub fn main() {
     let mut server = Server::new();
     server.register_simple("echo", echo);
     server.register_simple("double", double);
-    thread::spawn(move || server.run(&socket).unwrap());
+    thread::spawn(move || server.bind(&socket).unwrap().run().unwrap());
     let mut client = Client::new().unwrap();
     let req = TestStruct {
         foo: 42,
