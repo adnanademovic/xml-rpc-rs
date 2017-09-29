@@ -122,6 +122,12 @@ impl BoundServer {
         BoundServer { server }
     }
 
+    pub fn local_addr(&self) -> Result<std::net::SocketAddr> {
+        self.server.local_addr().chain_err(
+            || "Failed to get socket address",
+        )
+    }
+
     pub fn run(self) -> Result<()> {
         self.server.run().chain_err(|| "Failed to run server")
     }

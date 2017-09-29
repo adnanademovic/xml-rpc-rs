@@ -26,7 +26,12 @@ pub fn main() {
     let mut server = Server::new();
     server.register_simple("echo", echo);
     server.register_simple("double", double);
-    thread::spawn(move || server.bind(&socket).unwrap().run().unwrap());
+    thread::spawn(move || {
+        let bound_server = server.bind(&socket).unwrap();
+        let socket = bound_server.local_addr().unwrap();
+        println!("{}", socket);
+        bound_server.run().unwrap()
+    });
     let mut client = Client::new().unwrap();
     let req = TestStruct {
         foo: 42,
