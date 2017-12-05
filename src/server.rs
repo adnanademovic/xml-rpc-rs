@@ -170,10 +170,13 @@ impl HyperService for Service {
                     Err(_err) => return futures::future::err(hyper::error::Error::Incomplete),
                 };
                 let res = server.handle(call);
-                let mut response = HyperResponse::new();
-                response.set_body(res.to_xml());
-                futures::future::ok(response)
-
+                let body = res.to_xml();
+                futures::future::ok(
+                    HyperResponse::new()
+                        .with_header(hyper::header::ContentLength(body.len() as u64))
+                        .with_header(hyper::header::ContentType::xml())
+                        .with_body(body),
+                )
             })
     }
 }

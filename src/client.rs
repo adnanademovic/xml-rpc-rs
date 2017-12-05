@@ -26,13 +26,16 @@ impl Client {
         Tkey: Into<String>,
     {
         use super::xmlfmt::value::ToXml;
+        let body = Call {
+            name: name.into(),
+            params,
+        }.to_xml();
         let mut request = Request::new(Method::Post, uri.clone());
-        request.set_body(
-            Call {
-                name: name.into(),
-                params,
-            }.to_xml(),
-        );
+        request.headers_mut().set(hyper::header::ContentLength(
+            body.len() as u64,
+        ));
+        request.headers_mut().set(hyper::header::ContentType::xml());
+        request.set_body(body);
         let work = self.client.request(request).and_then(|res| {
             res.body().concat2().map(|chunk| chunk.to_vec())
         });
