@@ -44,6 +44,17 @@ fn reads_pod_xml_value() {
 }
 
 #[test]
+fn reads_empty_array_xml_value() {
+    let data = r#"<?xml version="1.0"?>
+<array>
+    <data>
+    </data>
+</array>"#;
+    let data = parse::xml(data.as_bytes()).expect(BAD_DATA);
+    assert_eq!(data, Value::Array(vec![]));
+}
+
+#[test]
 fn reads_array_xml_value() {
     let data = r#"<?xml version="1.0"?>
 <array>

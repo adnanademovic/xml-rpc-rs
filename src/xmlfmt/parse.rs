@@ -169,6 +169,7 @@ impl Into<Result<Vec<Value>>> for XmlArray {
 
 #[derive(Debug, PartialEq, Deserialize)]
 struct XmlArrayData {
+    #[serde(default)]
     pub value: Vec<XmlValue>,
 }
 
