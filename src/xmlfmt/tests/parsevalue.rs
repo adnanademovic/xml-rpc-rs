@@ -72,6 +72,13 @@ fn reads_array_xml_value() {
 }
 
 #[test]
+fn reads_empty_struct_xml_value() {
+    let data = r#"<?xml version="1.0"?><struct></struct>"#;
+    let data = parse::xml(data.as_bytes()).expect(BAD_DATA);
+    assert_eq!(data, Value::Struct(HashMap::<String, Value>::new()));
+}
+
+#[test]
 fn reads_struct_xml_value() {
     let mut fields = HashMap::<String, Value>::new();
     fields.insert("foo".into(), Value::Int(42));

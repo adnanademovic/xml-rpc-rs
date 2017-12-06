@@ -184,7 +184,7 @@ impl Into<Result<Vec<Value>>> for XmlArrayData {
 
 #[derive(Debug, PartialEq, Deserialize)]
 struct XmlStruct {
-    #[serde(rename = "member")]
+    #[serde(rename = "member", default)]
     pub members: Vec<XmlStructItem>,
 }
 
