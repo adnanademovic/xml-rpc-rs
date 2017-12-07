@@ -573,7 +573,14 @@ macro_rules! impl_from_i32 {
     }
 }
 
-impl_from_i32!(u8 u16 u32 u64 i8 i16 i32 i64);
+impl_from_i32!(u8 u16 u32 u64 i8 i16 i32);
+
+impl FromI32 for i64 {
+    #[inline]
+    fn from_i32(v: i32) -> i64 {
+        v.into()
+    }
+}
 
 fn handle_integer<'de, T, V>(value: Value, visitor: &V) -> Result<T>
 where

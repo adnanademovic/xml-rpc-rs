@@ -161,7 +161,7 @@ impl HyperService for Service {
     fn call(&self, req: Request) -> Self::Future {
         req.body()
             .concat2()
-            .join(futures::future::ok(self.server.clone()))
+            .join(futures::future::ok(Arc::clone(&self.server)))
             .and_then(|(chunk, server)| {
                 use super::xmlfmt::value::ToXml;
                 // TODO: use the right error type
@@ -198,6 +198,6 @@ impl HyperNewService for NewService {
     type Instance = Service;
 
     fn new_service(&self) -> std::io::Result<Self::Instance> {
-        Ok(Service { server: self.server.clone() })
+        Ok(Service { server: Arc::clone(&self.server) })
     }
 }

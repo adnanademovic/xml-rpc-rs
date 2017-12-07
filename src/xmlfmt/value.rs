@@ -19,7 +19,7 @@ pub enum Value {
 impl Value {
     pub fn unexpected(&self) -> Unexpected {
         match *self {
-            Value::Int(v) => Unexpected::Signed(v as i64),
+            Value::Int(v) => Unexpected::Signed(i64::from(v)),
             Value::Bool(v) => Unexpected::Bool(v),
             Value::String(ref v) => Unexpected::Str(v),
             Value::Double(v) => Unexpected::Float(v),
