@@ -131,7 +131,7 @@ impl Into<Result<Response>> for XmlResponse {
 
 #[derive(Debug, PartialEq, Deserialize)]
 struct XmlParams {
-    #[serde(rename = "param")]
+    #[serde(rename = "param", default)]
     pub params: Vec<XmlParamData>,
 }
 

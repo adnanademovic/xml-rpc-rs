@@ -285,3 +285,16 @@ fn writes_call() {
         params: vec![Value::String("South Dakota".into()), Value::Struct(fields)],
     });
 }
+
+#[test]
+fn reads_and_writes_empty_call() {
+    ser_and_de_call_value(Call {
+        name: String::new(),
+        params: Vec::new(),
+    })
+}
+
+#[test]
+fn reads_and_writes_empty_response() {
+    ser_and_de_response_value(Ok(vec![]))
+}
