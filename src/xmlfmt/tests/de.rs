@@ -129,7 +129,7 @@ fn reads_vector_as_array() {
     );
     assert_eq!(
         vec!['a', 'b', 'c', 'd'],
-        Vec::deserialize(Value::Array(vec![
+        Vec::<char>::deserialize(Value::Array(vec![
             Value::String("a".into()),
             Value::String("b".into()),
             Value::String("c".into()),

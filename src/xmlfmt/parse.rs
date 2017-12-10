@@ -1,25 +1,54 @@
 use std;
 use std::collections::HashMap;
 use base64;
+use regex::Regex;
 use serde_xml_rs::deserialize;
 use super::{Call, Fault, Response, Value};
 use super::error::{Result, ResultExt};
 
+fn wrap_in_string(content: String) -> String {
+    lazy_static! {
+        static ref RE1: Regex = Regex::new(r"<value\s*/>").unwrap();
+        static ref RE2: Regex = Regex::new(r"<value\s*>\s*<string\s*/>\s*</value\s*>").unwrap();
+        static ref RE3: Regex = Regex::new(r"<value\s*>(?P<rest>[^<>]*)</value\s*>").unwrap();
+    }
+    RE3.replace_all(
+        &RE2.replace_all(
+            &RE1.replace_all(&content, "<value><string></string></value>"),
+            "<value><string></string></value>",
+        ),
+        "<value><string>$rest</string></value>",
+    ).into()
+}
+
 #[allow(dead_code)]
-pub fn xml<T: std::io::Read>(r: T) -> Result<Value> {
-    let data: XmlValue = deserialize(r).chain_err(|| "Failed to parse XML-RPC data.")?;
-    data.into()
-}
-
-pub fn call<T: std::io::Read>(r: T) -> Result<Call> {
-    let data: XmlCall = deserialize(r).chain_err(|| "Failed to parse XML-RPC call.")?;
-    data.into()
-}
-
-pub fn response<T: std::io::Read>(r: T) -> Result<Response> {
-    let data: XmlResponse = deserialize(r).chain_err(
-        || "Failed to parse XML-RPC response.",
+pub fn xml<T: std::io::Read>(mut r: T) -> Result<Value> {
+    let mut content = String::new();
+    r.read_to_string(&mut content).chain_err(
+        || "Failed to read data source.",
     )?;
+    let data: XmlValue = deserialize(std::io::Cursor::new(wrap_in_string(content)))
+        .chain_err(|| "Failed to parse XML-RPC data.")?;
+    data.into()
+}
+
+pub fn call<T: std::io::Read>(mut r: T) -> Result<Call> {
+    let mut content = String::new();
+    r.read_to_string(&mut content).chain_err(
+        || "Failed to read data source.",
+    )?;
+    let data: XmlCall = deserialize(std::io::Cursor::new(wrap_in_string(content)))
+        .chain_err(|| "Failed to parse XML-RPC call.")?;
+    data.into()
+}
+
+pub fn response<T: std::io::Read>(mut r: T) -> Result<Response> {
+    let mut content = String::new();
+    r.read_to_string(&mut content).chain_err(
+        || "Failed to read data source.",
+    )?;
+    let data: XmlResponse = deserialize(std::io::Cursor::new(wrap_in_string(content)))
+        .chain_err(|| "Failed to parse XML-RPC response.")?;
     data.into()
 }
 
