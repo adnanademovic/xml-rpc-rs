@@ -79,6 +79,33 @@ fn reads_empty_struct_xml_value() {
 }
 
 #[test]
+fn reads_tagged_and_untagged_strings() {
+    let data = r#"<?xml version="1.0"?>
+<array>
+    <data>
+        <value><string>foo</string></value>
+        <value><string></string></value>
+        <value><string /></value>
+        <value>bar</value>
+        <value></value>
+        <value />
+    </data>
+</array>"#;
+    let data = parse::xml(data.as_bytes()).expect(BAD_DATA);
+    assert_eq!(
+        data,
+        Value::Array(vec![
+            Value::String("foo".into()),
+            Value::String(String::new()),
+            Value::String(String::new()),
+            Value::String("bar".into()),
+            Value::String(String::new()),
+            Value::String(String::new()),
+        ])
+    );
+}
+
+#[test]
 fn reads_struct_xml_value() {
     let mut fields = HashMap::<String, Value>::new();
     fields.insert("foo".into(), Value::Int(42));
@@ -103,6 +130,7 @@ fn reads_response() {
     let mut fields = HashMap::<String, Value>::new();
     fields.insert("foo".into(), Value::Int(42));
     fields.insert("bar".into(), Value::String("baz".into()));
+    fields.insert("bar2".into(), Value::String("baz2".into()));
     let params = vec![Value::String("South Dakota".into()), Value::Struct(fields)];
     let data = r#"<?xml version="1.0"?>
 <methodResponse>
@@ -120,6 +148,10 @@ fn reads_response() {
                     <member>
                         <name>bar</name>
                         <value><string>baz</string></value>
+                    </member>
+                    <member>
+                        <name>bar2</name>
+                        <value>baz2</value>
                     </member>
                 </struct>
             </value>
