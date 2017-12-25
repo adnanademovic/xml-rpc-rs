@@ -125,7 +125,6 @@ fn writes_options_as_one_elem_or_empty_array() {
     );
 }
 
-
 #[test]
 fn writes_units_as_empty_struct() {
     assert_eq!(
@@ -181,7 +180,6 @@ fn writes_vector_as_array() {
     );
 }
 
-
 #[test]
 fn writes_tuple_as_array() {
     assert_eq!(
@@ -214,7 +212,6 @@ fn writes_tuple_as_array() {
 
 #[test]
 fn writes_struct_as_struct() {
-
     #[derive(Serialize)]
     struct Helper {
         foo: u8,

@@ -86,10 +86,8 @@ fn reads_options_as_one_elem_or_empty_array() {
     );
 }
 
-
 #[test]
 fn reads_units_as_empty_struct() {
-
     #[derive(Debug, Deserialize, PartialEq)]
     struct Helper;
 
@@ -137,7 +135,6 @@ fn reads_vector_as_array() {
         ])).unwrap()
     );
 }
-
 
 #[test]
 fn reads_tuple_as_array() {

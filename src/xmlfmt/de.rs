@@ -18,8 +18,7 @@ impl<'de> serde::Deserializer<'de> for Value {
         match self {
             Value::Int(v) => visitor.visit_i32(v),
             Value::Bool(v) => visitor.visit_bool(v),
-            Value::DateTime(v) |
-            Value::String(v) => visitor.visit_string(v),
+            Value::DateTime(v) | Value::String(v) => visitor.visit_string(v),
             Value::Double(v) => visitor.visit_f64(v),
             Value::Base64(v) => visitor.visit_bytes(v.as_slice()),
             Value::Array(v) => {
@@ -59,16 +58,14 @@ impl<'de> serde::Deserializer<'de> for Value {
     {
         match self {
             Value::Bool(v) => visitor.visit_bool(v),
-            Value::String(v) => {
-                match v.as_str() {
-                    "true" => visitor.visit_bool(true),
-                    "false" => visitor.visit_bool(false),
-                    _ => Err(serde::de::Error::invalid_value(
-                        Unexpected::Str(&v),
-                        &visitor,
-                    )),
-                }
-            }
+            Value::String(v) => match v.as_str() {
+                "true" => visitor.visit_bool(true),
+                "false" => visitor.visit_bool(false),
+                _ => Err(serde::de::Error::invalid_value(
+                    Unexpected::Str(&v),
+                    &visitor,
+                )),
+            },
             _ => Err(serde::de::Error::invalid_value(self.unexpected(), &visitor)),
         }
     }
@@ -144,9 +141,8 @@ impl<'de> serde::Deserializer<'de> for Value {
         match self {
             Value::Double(v) => visitor.visit_f32(v as f32),
             Value::String(v) => {
-                let x: Result<f32> = v.parse().map_err(|_| {
-                    serde::de::Error::invalid_value(Unexpected::Str(&v), &visitor)
-                });
+                let x: Result<f32> = v.parse()
+                    .map_err(|_| serde::de::Error::invalid_value(Unexpected::Str(&v), &visitor));
                 visitor.visit_f32(x?)
             }
             _ => Err(serde::de::Error::invalid_value(self.unexpected(), &visitor)),
@@ -160,9 +156,8 @@ impl<'de> serde::Deserializer<'de> for Value {
         match self {
             Value::Double(v) => visitor.visit_f64(v),
             Value::String(v) => {
-                let x: Result<f64> = v.parse().map_err(|_| {
-                    serde::de::Error::invalid_value(Unexpected::Str(&v), &visitor)
-                });
+                let x: Result<f64> = v.parse()
+                    .map_err(|_| serde::de::Error::invalid_value(Unexpected::Str(&v), &visitor));
                 visitor.visit_f64(x?)
             }
             _ => Err(serde::de::Error::invalid_value(self.unexpected(), &visitor)),
@@ -355,12 +350,10 @@ impl<'de> serde::Deserializer<'de> for Value {
                     &"map with a single key",
                 ))
             }
-            other => {
-                Err(serde::de::Error::invalid_value(
-                    other.unexpected(),
-                    &"map with a single key",
-                ))
-            }
+            other => Err(serde::de::Error::invalid_value(
+                other.unexpected(),
+                &"map with a single key",
+            )),
         }
     }
 
@@ -375,7 +368,9 @@ struct SeqDeserializer {
 
 impl SeqDeserializer {
     fn new(vec: Vec<Value>) -> Self {
-        SeqDeserializer { iter: vec.into_iter() }
+        SeqDeserializer {
+            iter: vec.into_iter(),
+        }
     }
 }
 
@@ -398,7 +393,6 @@ impl<'de> serde::Deserializer<'de> for SeqDeserializer {
                 &"fewer elements in array",
             ))
         }
-
     }
 
     forward_to_deserialize_any! {
@@ -589,11 +583,8 @@ where
 {
     match value {
         Value::Int(v) => Ok(T::from_i32(v)),
-        Value::String(v) => {
-            v.parse().map_err(|_| {
-                serde::de::Error::invalid_value(Unexpected::Str(&v), visitor)
-            })
-        }
+        Value::String(v) => v.parse()
+            .map_err(|_| serde::de::Error::invalid_value(Unexpected::Str(&v), visitor)),
         _ => Err(serde::de::Error::invalid_value(value.unexpected(), visitor)),
     }
 }

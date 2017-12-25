@@ -3,12 +3,12 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use futures::{self, Future, Stream};
 use hyper;
-use hyper::server::{Http, Request, Response as HyperResponse, Service as HyperService,
-                    NewService as HyperNewService};
+use hyper::server::{Http, NewService as HyperNewService, Request, Response as HyperResponse,
+                    Service as HyperService};
 use serde::{Deserialize, Serialize};
 
 use super::error::{Result, ResultExt};
-use super::xmlfmt::{Value, Fault, Call, Response, error, parse, from_params, into_params};
+use super::xmlfmt::{error, from_params, into_params, parse, Call, Fault, Response, Value};
 
 type Handler = Box<Fn(Vec<Value>) -> Response + Send + Sync>;
 type HandlerMap = HashMap<String, Handler>;
@@ -107,9 +107,9 @@ impl Server {
     }
 
     fn handle(&self, req: Call) -> Response {
-        self.handlers.get(&req.name).unwrap_or(
-            &self.on_missing_method,
-        )(req.params)
+        self.handlers
+            .get(&req.name)
+            .unwrap_or(&self.on_missing_method)(req.params)
     }
 }
 
@@ -123,9 +123,9 @@ impl BoundServer {
     }
 
     pub fn local_addr(&self) -> Result<std::net::SocketAddr> {
-        self.server.local_addr().chain_err(
-            || "Failed to get socket address",
-        )
+        self.server
+            .local_addr()
+            .chain_err(|| "Failed to get socket address")
     }
 
     pub fn run(self) -> Result<()> {
@@ -136,9 +136,9 @@ impl BoundServer {
     where
         F: futures::Future<Item = (), Error = ()>,
     {
-        self.server.run_until(shutdown_signal).chain_err(
-            || "Failed to run server",
-        )
+        self.server
+            .run_until(shutdown_signal)
+            .chain_err(|| "Failed to run server")
     }
 }
 
@@ -187,7 +187,9 @@ struct NewService {
 
 impl NewService {
     fn new(server: Server) -> NewService {
-        NewService { server: Arc::new(server) }
+        NewService {
+            server: Arc::new(server),
+        }
     }
 }
 
@@ -198,6 +200,8 @@ impl HyperNewService for NewService {
     type Instance = Service;
 
     fn new_service(&self) -> std::io::Result<Self::Instance> {
-        Ok(Service { server: Arc::clone(&self.server) })
+        Ok(Service {
+            server: Arc::clone(&self.server),
+        })
     }
 }

@@ -191,7 +191,6 @@ fn reads_fault() {
     );
 }
 
-
 #[test]
 fn reads_call() {
     let mut fields = HashMap::<String, Value>::new();
@@ -277,9 +276,11 @@ fn writes_pod_xml_value() {
 
 #[test]
 fn writes_array_xml_value() {
-    ser_and_de(Value::Array(
-        vec![Value::Int(33), Value::Int(-12), Value::Int(44)],
-    ));
+    ser_and_de(Value::Array(vec![
+        Value::Int(33),
+        Value::Int(-12),
+        Value::Int(44),
+    ]));
 }
 
 #[test]

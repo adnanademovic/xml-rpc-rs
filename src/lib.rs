@@ -23,6 +23,6 @@ pub mod error;
 pub mod server;
 mod xmlfmt;
 
-pub use client::Client;
+pub use client::{call, call_value, Client};
 pub use server::Server;
-pub use xmlfmt::{Call, Fault, Params, Response, Value, from_params, into_params};
+pub use xmlfmt::{from_params, into_params, Call, Fault, Params, Response, Value};

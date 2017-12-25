@@ -35,10 +35,8 @@ pub type Params = Vec<Value>;
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 pub struct Fault {
-    #[serde(rename = "faultCode")]
-    pub code: i32,
-    #[serde(rename = "faultString")]
-    pub message: String,
+    #[serde(rename = "faultCode")] pub code: i32,
+    #[serde(rename = "faultString")] pub message: String,
 }
 
 impl Fault {
@@ -81,22 +79,18 @@ impl ToXml for Call {
 impl ToXml for Response {
     fn to_xml(&self) -> String {
         match *self {
-            Ok(ref params) => {
-                format!(
-                    include_str!("templates/response_success.xml"),
-                    params = params
-                        .iter()
-                        .map(|param| format!("<param>{}</param>", param.to_xml()))
-                        .collect::<String>()
-                )
-            }
-            Err(Fault { code, ref message }) => {
-                format!(
-                    include_str!("templates/response_fault.xml"),
-                    code = code,
-                    message = message
-                )
-            }
+            Ok(ref params) => format!(
+                include_str!("templates/response_success.xml"),
+                params = params
+                    .iter()
+                    .map(|param| format!("<param>{}</param>", param.to_xml()))
+                    .collect::<String>()
+            ),
+            Err(Fault { code, ref message }) => format!(
+                include_str!("templates/response_fault.xml"),
+                code = code,
+                message = message
+            ),
         }
     }
 }
@@ -105,12 +99,10 @@ impl ToXml for Value {
     fn to_xml(&self) -> String {
         match *self {
             Value::Int(v) => format!("<value><i4>{}</i4></value>", v),
-            Value::Bool(v) => {
-                format!(
-                    "<value><boolean>{}</boolean></value>",
-                    if v { 1 } else { 0 }
-                )
-            }
+            Value::Bool(v) => format!(
+                "<value><boolean>{}</boolean></value>",
+                if v { 1 } else { 0 }
+            ),
             Value::String(ref v) => {
                 format!("<value><string>{}</string></value>", escape_str_pcdata(v))
             }
@@ -121,23 +113,20 @@ impl ToXml for Value {
             Value::Base64(ref v) => {
                 format!("<value><base64>{}</base64></value>", base64::encode(v))
             }
-            Value::Array(ref v) => {
-                format!(
-                    "<value><array><data>{}</data></array></value>",
-                    v.iter().map(Value::to_xml).collect::<String>()
-                )
-            }
-            Value::Struct(ref v) => {
-                format!(
-                    "<value><struct>{}</struct></value>",
-                    v.iter()
-                        .map(|(key, value)| {
-                            format!("<member><name>{}</name>{}</member>", key, value.to_xml())
-                        })
-                        .collect::<String>()
-                )
-            }
+            Value::Array(ref v) => format!(
+                "<value><array><data>{}</data></array></value>",
+                v.iter().map(Value::to_xml).collect::<String>()
+            ),
+            Value::Struct(ref v) => format!(
+                "<value><struct>{}</struct></value>",
+                v.iter()
+                    .map(|(key, value)| format!(
+                        "<member><name>{}</name>{}</member>",
+                        key,
+                        value.to_xml()
+                    ))
+                    .collect::<String>()
+            ),
         }
-
     }
 }
