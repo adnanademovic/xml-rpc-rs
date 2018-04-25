@@ -1,10 +1,12 @@
 use std;
-use futures::{Future, Stream};
-use hyper::{self, Client as HyperClient, Method, Request, Uri};
+use hyper::Uri;
+use hyper10::{self, Client as HyperClient};
 use serde::{Deserialize, Serialize};
-use tokio_core::reactor::Core;
 use super::error::{Result, ResultExt};
 use super::xmlfmt::{from_params, into_params, parse, Call, Fault, Params, Response};
+
+use hyper10::header::Headers;
+header! { (ContentType, "ContentType") => [String] }
 
 pub fn call_value<Tkey>(uri: &Uri, name: Tkey, params: Params) -> Result<Response>
 where
@@ -27,16 +29,13 @@ where
 }
 
 pub struct Client {
-    core: Core,
-    client: HyperClient<hyper::client::HttpConnector>,
+    client: HyperClient,
 }
 
 impl Client {
     pub fn new() -> Result<Client> {
-        let core = Core::new().chain_err(|| "Failed to initialize Tokio Core.")?;
-        let client = HyperClient::new(&core.handle());
+        let client = HyperClient::new();
         Ok(Client {
-            core: core,
             client: client,
         })
     }
@@ -46,23 +45,24 @@ impl Client {
         Tkey: Into<String>,
     {
         use super::xmlfmt::value::ToXml;
-        let body = Call {
+        let body_str = Call {
             name: name.into(),
             params,
         }.to_xml();
-        let mut request = Request::new(Method::Post, uri.clone());
-        request
-            .headers_mut()
-            .set(hyper::header::ContentLength(body.len() as u64));
-        request.headers_mut().set(hyper::header::ContentType::xml());
-        request.set_body(body);
-        let work = self.client
-            .request(request)
-            .and_then(|res| res.body().concat2().map(|chunk| chunk.to_vec()));
-        let response = self.core
-            .run(work)
-            .chain_err(|| "Failed to run the HTTP request within Tokio Core.")?;
-        parse::response(response.as_slice()).map_err(Into::into)
+        let bytes: &[u8] = body_str.as_bytes();
+        let body = hyper10::client::Body::BufBody(bytes, bytes.len());
+
+        let mut headers = Headers::new();
+        headers.set(ContentType("xml".to_owned()));
+
+        let response = self.client
+            .post(uri.as_ref())
+            .headers(headers)
+            .body(body)
+            .send()
+            .chain_err(|| "Failed to run the HTTP request within hyper.")?;
+
+        parse::response(response).map_err(Into::into)
     }
 
     pub fn call<'a, Tkey, Treq, Tres>(

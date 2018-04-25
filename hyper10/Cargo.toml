@@ -1,0 +1,7 @@
+[package]
+name = "hyper10"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+
+[dependencies]
+hyper = "0.10"
