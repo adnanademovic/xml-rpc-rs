@@ -4,6 +4,8 @@ extern crate base64;
 #[macro_use]
 extern crate error_chain;
 extern crate futures;
+#[macro_use]
+extern crate hyper10;
 extern crate hyper;
 #[macro_use]
 extern crate lazy_static;
@@ -15,7 +17,6 @@ extern crate serde_bytes;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_xml_rs;
-extern crate tokio_core;
 extern crate xml;
 
 pub mod client;
