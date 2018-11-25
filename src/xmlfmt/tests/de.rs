@@ -1,7 +1,7 @@
-use std::collections::HashMap;
+use super::super::Value;
 use serde::Deserialize;
 use serde_bytes;
-use super::super::Value;
+use std::collections::HashMap;
 
 #[test]
 fn reads_bool() {

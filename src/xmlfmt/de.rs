@@ -1,11 +1,12 @@
+use super::error::{Error, Result};
+use super::Value;
+use serde::de::{
+    DeserializeSeed, EnumAccess, MapAccess, SeqAccess, Unexpected, VariantAccess, Visitor,
+};
+use serde::{self, Deserializer};
 use std;
 use std::collections::HashMap;
 use std::vec;
-use serde::{self, Deserializer};
-use serde::de::{DeserializeSeed, EnumAccess, MapAccess, SeqAccess, Unexpected, VariantAccess,
-                Visitor};
-use super::Value;
-use super::error::{Error, Result};
 
 impl<'de> serde::Deserializer<'de> for Value {
     type Error = Error;
@@ -141,7 +142,8 @@ impl<'de> serde::Deserializer<'de> for Value {
         match self {
             Value::Double(v) => visitor.visit_f32(v as f32),
             Value::String(v) => {
-                let x: Result<f32> = v.parse()
+                let x: Result<f32> = v
+                    .parse()
                     .map_err(|_| serde::de::Error::invalid_value(Unexpected::Str(&v), &visitor));
                 visitor.visit_f32(x?)
             }
@@ -156,7 +158,8 @@ impl<'de> serde::Deserializer<'de> for Value {
         match self {
             Value::Double(v) => visitor.visit_f64(v),
             Value::String(v) => {
-                let x: Result<f64> = v.parse()
+                let x: Result<f64> = v
+                    .parse()
                     .map_err(|_| serde::de::Error::invalid_value(Unexpected::Str(&v), &visitor));
                 visitor.visit_f64(x?)
             }
@@ -583,7 +586,8 @@ where
 {
     match value {
         Value::Int(v) => Ok(T::from_i32(v)),
-        Value::String(v) => v.parse()
+        Value::String(v) => v
+            .parse()
             .map_err(|_| serde::de::Error::invalid_value(Unexpected::Str(&v), visitor)),
         _ => Err(serde::de::Error::invalid_value(value.unexpected(), visitor)),
     }

@@ -1,8 +1,8 @@
-use std::collections::HashMap;
-use serde::Serialize;
-use serde_bytes::Bytes;
 use super::super::ser::Serializer;
 use super::super::Value;
+use serde::Serialize;
+use serde_bytes::Bytes;
+use std::collections::HashMap;
 
 #[test]
 fn writes_bool() {
@@ -233,7 +233,7 @@ fn writes_struct_as_struct() {
             baz: "hello".into(),
             qux: true,
         }.serialize(Serializer {})
-            .unwrap(),
+        .unwrap(),
         Value::Struct(members)
     );
 }
@@ -414,7 +414,7 @@ fn writes_variant_as_one_member_struct() {
             alpha: -4,
             beta: vec![true, false, true],
         }.serialize(Serializer {})
-            .unwrap(),
+        .unwrap(),
         Value::Struct(members)
     );
 }

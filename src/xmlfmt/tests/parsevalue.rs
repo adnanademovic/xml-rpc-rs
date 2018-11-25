@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-use serde::Deserialize;
 use super::super::*;
+use serde::Deserialize;
+use std::collections::HashMap;
 
 static BAD_DATA: &'static str = "Bad data provided";
 

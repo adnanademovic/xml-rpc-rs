@@ -1,7 +1,7 @@
-use std::collections::HashMap;
-use serde::{self, Serialize};
-use super::Value;
 use super::error::{Error, ErrorKind};
+use super::Value;
+use serde::{self, Serialize};
+use std::collections::HashMap;
 
 pub struct Serializer;
 

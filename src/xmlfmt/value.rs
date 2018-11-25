@@ -1,7 +1,7 @@
-use std;
-use std::collections::HashMap;
 use base64;
 use serde::de::Unexpected;
+use std;
+use std::collections::HashMap;
 use xml::escape::escape_str_pcdata;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -35,8 +35,10 @@ pub type Params = Vec<Value>;
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 pub struct Fault {
-    #[serde(rename = "faultCode")] pub code: i32,
-    #[serde(rename = "faultString")] pub message: String,
+    #[serde(rename = "faultCode")]
+    pub code: i32,
+    #[serde(rename = "faultString")]
+    pub message: String,
 }
 
 impl Fault {
@@ -68,7 +70,8 @@ impl ToXml for Call {
         format!(
             include_str!("templates/call.xml"),
             name = self.name,
-            params = self.params
+            params = self
+                .params
                 .iter()
                 .map(|param| format!("<param>{}</param>", param.to_xml()))
                 .collect::<String>()
@@ -124,8 +127,7 @@ impl ToXml for Value {
                         "<member><name>{}</name>{}</member>",
                         key,
                         value.to_xml()
-                    ))
-                    .collect::<String>()
+                    )).collect::<String>()
             ),
         }
     }

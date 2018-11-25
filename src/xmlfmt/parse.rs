@@ -1,10 +1,10 @@
-use std;
-use std::collections::HashMap;
+use super::error::{Result, ResultExt};
+use super::{Call, Fault, Response, Value};
 use base64;
 use regex::Regex;
 use serde_xml_rs::deserialize;
-use super::{Call, Fault, Response, Value};
-use super::error::{Result, ResultExt};
+use std;
+use std::collections::HashMap;
 
 fn wrap_in_string(content: String) -> String {
     lazy_static! {
@@ -51,15 +51,24 @@ pub fn response<T: std::io::Read>(mut r: T) -> Result<Response> {
 
 #[derive(Debug, PartialEq, Deserialize)]
 enum XmlValue {
-    #[serde(rename = "i4")] I4(i32),
-    #[serde(rename = "int")] Int(i32),
-    #[serde(rename = "boolean")] Bool(i32),
-    #[serde(rename = "string")] Str(String),
-    #[serde(rename = "double")] Double(String),
-    #[serde(rename = "dateTime.iso8601")] DateTime(String),
-    #[serde(rename = "base64")] Base64(String),
-    #[serde(rename = "array")] Array(XmlArray),
-    #[serde(rename = "struct")] Struct(XmlStruct),
+    #[serde(rename = "i4")]
+    I4(i32),
+    #[serde(rename = "int")]
+    Int(i32),
+    #[serde(rename = "boolean")]
+    Bool(i32),
+    #[serde(rename = "string")]
+    Str(String),
+    #[serde(rename = "double")]
+    Double(String),
+    #[serde(rename = "dateTime.iso8601")]
+    DateTime(String),
+    #[serde(rename = "base64")]
+    Base64(String),
+    #[serde(rename = "array")]
+    Array(XmlArray),
+    #[serde(rename = "struct")]
+    Struct(XmlStruct),
 }
 
 impl Into<Result<Value>> for XmlValue {
@@ -88,7 +97,8 @@ impl Into<Result<Value>> for XmlValue {
 #[derive(Debug, PartialEq, Deserialize)]
 #[serde(rename = "methodCall")]
 struct XmlCall {
-    #[serde(rename = "methodName")] pub name: String,
+    #[serde(rename = "methodName")]
+    pub name: String,
     pub params: XmlParams,
 }
 
@@ -104,8 +114,10 @@ impl Into<Result<Call>> for XmlCall {
 
 #[derive(Debug, PartialEq, Deserialize)]
 enum XmlResponseResult {
-    #[serde(rename = "params")] Success(XmlParams),
-    #[serde(rename = "fault")] Failure { value: XmlValue },
+    #[serde(rename = "params")]
+    Success(XmlParams),
+    #[serde(rename = "fault")]
+    Failure { value: XmlValue },
 }
 
 impl Into<Result<Response>> for XmlResponseResult {
@@ -120,8 +132,9 @@ impl Into<Result<Response>> for XmlResponseResult {
 
                 let val: Result<Value> = v.into();
 
-                Ok(Err(Fault::deserialize(val?)
-                    .chain_err(|| "Failed to decode fault structure")?))
+                Ok(Err(
+                    Fault::deserialize(val?).chain_err(|| "Failed to decode fault structure")?
+                ))
             }
         }
     }
@@ -129,7 +142,8 @@ impl Into<Result<Response>> for XmlResponseResult {
 
 #[derive(Debug, PartialEq, Deserialize)]
 enum XmlResponse {
-    #[serde(rename = "methodResponse")] Response(XmlResponseResult),
+    #[serde(rename = "methodResponse")]
+    Response(XmlResponseResult),
 }
 
 impl Into<Result<Response>> for XmlResponse {
@@ -142,7 +156,8 @@ impl Into<Result<Response>> for XmlResponse {
 
 #[derive(Debug, PartialEq, Deserialize)]
 struct XmlParams {
-    #[serde(rename = "param", default)] pub params: Vec<XmlParamData>,
+    #[serde(rename = "param", default)]
+    pub params: Vec<XmlParamData>,
 }
 
 impl Into<Result<Vec<Value>>> for XmlParams {
@@ -167,7 +182,8 @@ impl Into<Result<Value>> for XmlParamData {
 
 #[derive(Debug, PartialEq, Deserialize)]
 struct XmlArray {
-    #[serde(rename = "data")] pub data: XmlArrayData,
+    #[serde(rename = "data")]
+    pub data: XmlArrayData,
 }
 
 impl Into<Result<Vec<Value>>> for XmlArray {
@@ -178,7 +194,8 @@ impl Into<Result<Vec<Value>>> for XmlArray {
 
 #[derive(Debug, PartialEq, Deserialize)]
 struct XmlArrayData {
-    #[serde(default)] pub value: Vec<XmlValue>,
+    #[serde(default)]
+    pub value: Vec<XmlValue>,
 }
 
 impl Into<Result<Vec<Value>>> for XmlArrayData {
@@ -192,7 +209,8 @@ impl Into<Result<Vec<Value>>> for XmlArrayData {
 
 #[derive(Debug, PartialEq, Deserialize)]
 struct XmlStruct {
-    #[serde(rename = "member", default)] pub members: Vec<XmlStructItem>,
+    #[serde(rename = "member", default)]
+    pub members: Vec<XmlStructItem>,
 }
 
 impl Into<Result<HashMap<String, Value>>> for XmlStruct {

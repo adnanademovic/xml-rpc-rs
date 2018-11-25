@@ -1,9 +1,9 @@
-use std;
+use super::error::{Result, ResultExt};
+use super::xmlfmt::{from_params, into_params, parse, Call, Fault, Params, Response};
 use hyper::Uri;
 use hyper10::{self, Client as HyperClient};
 use serde::{Deserialize, Serialize};
-use super::error::{Result, ResultExt};
-use super::xmlfmt::{from_params, into_params, parse, Call, Fault, Params, Response};
+use std;
 
 use hyper10::header::Headers;
 header! { (ContentType, "ContentType") => [String] }
@@ -35,9 +35,7 @@ pub struct Client {
 impl Client {
     pub fn new() -> Result<Client> {
         let client = HyperClient::new();
-        Ok(Client {
-            client: client,
-        })
+        Ok(Client { client: client })
     }
 
     pub fn call_value<Tkey>(&mut self, uri: &Uri, name: Tkey, params: Params) -> Result<Response>
@@ -55,7 +53,8 @@ impl Client {
         let mut headers = Headers::new();
         headers.set(ContentType("xml".to_owned()));
 
-        let response = self.client
+        let response = self
+            .client
             .post(uri.as_ref())
             .headers(headers)
             .body(body)
