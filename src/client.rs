@@ -1,14 +1,14 @@
 use super::error::{Result, ResultExt};
 use super::xmlfmt::{from_params, into_params, parse, Call, Fault, Params, Response};
-use hyper::Uri;
-use hyper10::{self, Client as HyperClient};
+use hyper::{self, Client as HyperClient};
 use serde::{Deserialize, Serialize};
 use std;
+use Url;
 
-use hyper10::header::Headers;
+use hyper::header::Headers;
 header! { (ContentType, "ContentType") => [String] }
 
-pub fn call_value<Tkey>(uri: &Uri, name: Tkey, params: Params) -> Result<Response>
+pub fn call_value<Tkey>(uri: &Url, name: Tkey, params: Params) -> Result<Response>
 where
     Tkey: Into<String>,
 {
@@ -16,7 +16,7 @@ where
 }
 
 pub fn call<'a, Tkey, Treq, Tres>(
-    uri: &Uri,
+    uri: &Url,
     name: Tkey,
     req: Treq,
 ) -> Result<std::result::Result<Tres, Fault>>
@@ -38,7 +38,7 @@ impl Client {
         Ok(Client { client: client })
     }
 
-    pub fn call_value<Tkey>(&mut self, uri: &Uri, name: Tkey, params: Params) -> Result<Response>
+    pub fn call_value<Tkey>(&mut self, uri: &Url, name: Tkey, params: Params) -> Result<Response>
     where
         Tkey: Into<String>,
     {
@@ -49,7 +49,7 @@ impl Client {
         }
         .to_xml();
         let bytes: &[u8] = body_str.as_bytes();
-        let body = hyper10::client::Body::BufBody(bytes, bytes.len());
+        let body = hyper::client::Body::BufBody(bytes, bytes.len());
 
         let mut headers = Headers::new();
         headers.set(ContentType("xml".to_owned()));
@@ -67,7 +67,7 @@ impl Client {
 
     pub fn call<'a, Tkey, Treq, Tres>(
         &mut self,
-        uri: &Uri,
+        uri: &Url,
         name: Tkey,
         req: Treq,
     ) -> Result<std::result::Result<Tres, Fault>>

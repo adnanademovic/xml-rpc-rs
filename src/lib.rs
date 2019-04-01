@@ -5,8 +5,7 @@ extern crate base64;
 extern crate error_chain;
 extern crate futures;
 #[macro_use]
-extern crate hyper10;
-pub extern crate hyper;
+extern crate hyper;
 #[macro_use]
 extern crate lazy_static;
 extern crate regex;
@@ -26,6 +25,6 @@ pub mod server;
 mod xmlfmt;
 
 pub use client::{call, call_value, Client};
-pub use hyper::Uri;
+pub use hyper::Url;
 pub use server::Server;
 pub use xmlfmt::{from_params, into_params, Call, Fault, Params, Response, Value};
