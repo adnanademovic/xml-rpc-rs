@@ -1,15 +1,9 @@
-use futures::{self, Future, Stream};
-use hyper;
-use hyper::server::{
-    Http, NewService as HyperNewService, Request, Response as HyperResponse,
-    Service as HyperService,
-};
+use rouille;
 use serde::{Deserialize, Serialize};
 use std;
 use std::collections::HashMap;
-use std::sync::Arc;
 
-use super::error::{Result, ResultExt};
+use super::error::{ErrorKind, Result};
 use super::xmlfmt::{error, from_params, into_params, parse, Call, Fault, Response, Value};
 
 type Handler = Box<Fn(Vec<Value>) -> Response + Send + Sync>;
@@ -101,11 +95,32 @@ impl Server {
         self.on_missing_method = Box::new(handler);
     }
 
-    pub fn bind(self, uri: &std::net::SocketAddr) -> Result<BoundServer> {
-        Http::new()
-            .bind(uri, NewService::new(self))
-            .chain_err(|| "Failed to bind port")
+    pub fn bind(
+        self,
+        uri: &std::net::SocketAddr,
+    ) -> Result<BoundServer<impl Fn(&rouille::Request) -> rouille::Response + Send + Sync + 'static>>
+    {
+        rouille::Server::new(uri, move |req| self.handle_outer(req))
+            .map_err(|err| ErrorKind::BindFail(err.description().into()).into())
             .map(BoundServer::new)
+    }
+
+    fn handle_outer(&self, request: &rouille::Request) -> rouille::Response {
+        use super::xmlfmt::value::ToXml;
+
+        let body = match request.data() {
+            Some(data) => data,
+            None => return rouille::Response::empty_400(),
+        };
+
+        // TODO: use the right error type
+        let call: Call = match parse::call(body) {
+            Ok(data) => data,
+            Err(_err) => return rouille::Response::empty_400(),
+        };
+        let res = self.handle(call);
+        let body = res.to_xml();
+        rouille::Response::from_data("text/xml", body)
     }
 
     fn handle(&self, req: Call) -> Response {
@@ -115,95 +130,31 @@ impl Server {
     }
 }
 
-pub struct BoundServer {
-    server: hyper::Server<NewService, hyper::Body>,
+pub struct BoundServer<F>
+where
+    F: Send + Sync + 'static + Fn(&rouille::Request) -> rouille::Response,
+{
+    server: rouille::Server<F>,
+    // server: hyper::Server<NewService, hyper::Body>,
 }
 
-impl BoundServer {
-    fn new(server: hyper::Server<NewService, hyper::Body>) -> BoundServer {
-        BoundServer { server }
+impl<F> BoundServer<F>
+where
+    F: Send + Sync + 'static + Fn(&rouille::Request) -> rouille::Response,
+{
+    fn new(server: rouille::Server<F>) -> Self {
+        Self { server }
     }
 
-    pub fn local_addr(&self) -> Result<std::net::SocketAddr> {
-        self.server
-            .local_addr()
-            .chain_err(|| "Failed to get socket address")
+    pub fn local_addr(&self) -> std::net::SocketAddr {
+        self.server.server_addr()
     }
 
-    pub fn run(self) -> Result<()> {
-        self.server.run().chain_err(|| "Failed to run server")
+    pub fn run(self) {
+        self.server.run()
     }
 
-    pub fn run_until<F>(self, shutdown_signal: F) -> Result<()>
-    where
-        F: futures::Future<Item = (), Error = ()>,
-    {
-        self.server
-            .run_until(shutdown_signal)
-            .chain_err(|| "Failed to run server")
-    }
-}
-
-struct Service {
-    server: Arc<Server>,
-}
-
-type BodyFuture = futures::stream::Concat2<hyper::Body>;
-type ServerResultFuture = futures::future::FutureResult<Arc<Server>, hyper::Error>;
-type BodyAndServerFuture = futures::Join<BodyFuture, ServerResultFuture>;
-type ResponseResultFuture = futures::future::FutureResult<HyperResponse, hyper::Error>;
-type ChunkServerResponder = fn((hyper::Chunk, Arc<Server>)) -> ResponseResultFuture;
-
-impl HyperService for Service {
-    type Request = Request;
-    type Response = HyperResponse;
-    type Error = hyper::Error;
-    type Future = futures::AndThen<BodyAndServerFuture, ResponseResultFuture, ChunkServerResponder>;
-
-    fn call(&self, req: Request) -> Self::Future {
-        req.body()
-            .concat2()
-            .join(futures::future::ok(Arc::clone(&self.server)))
-            .and_then(|(chunk, server)| {
-                use super::xmlfmt::value::ToXml;
-                // TODO: use the right error type
-                let call: Call = match parse::call(chunk.as_ref()) {
-                    Ok(data) => data,
-                    Err(_err) => return futures::future::err(hyper::error::Error::Incomplete),
-                };
-                let res = server.handle(call);
-                let body = res.to_xml();
-                futures::future::ok(
-                    HyperResponse::new()
-                        .with_header(hyper::header::ContentLength(body.len() as u64))
-                        .with_header(hyper::header::ContentType::xml())
-                        .with_body(body),
-                )
-            })
-    }
-}
-
-struct NewService {
-    server: Arc<Server>,
-}
-
-impl NewService {
-    fn new(server: Server) -> NewService {
-        NewService {
-            server: Arc::new(server),
-        }
-    }
-}
-
-impl HyperNewService for NewService {
-    type Request = Request;
-    type Response = HyperResponse;
-    type Error = hyper::Error;
-    type Instance = Service;
-
-    fn new_service(&self) -> std::io::Result<Self::Instance> {
-        Ok(Service {
-            server: Arc::clone(&self.server),
-        })
+    pub fn poll(&self) {
+        self.server.poll()
     }
 }

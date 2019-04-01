@@ -28,9 +28,9 @@ pub fn main() {
     server.register_simple("double", double);
     thread::spawn(move || {
         let bound_server = server.bind(&socket).unwrap();
-        let socket = bound_server.local_addr().unwrap();
+        let socket = bound_server.local_addr();
         println!("{}", socket);
-        bound_server.run().unwrap()
+        bound_server.run()
     });
     let mut client = Client::new().unwrap();
     let req = TestStruct {

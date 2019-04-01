@@ -16,6 +16,7 @@ extern crate serde;
 extern crate serde_bytes;
 #[macro_use]
 extern crate serde_derive;
+extern crate rouille;
 extern crate serde_xml_rs;
 extern crate xml;
 
