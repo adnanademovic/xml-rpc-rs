@@ -118,7 +118,7 @@ fn reads_newtype_struct_as_its_content() {
 fn reads_vector_as_array() {
     assert_eq!(
         vec![33, 15, 44, 12],
-        Vec::deserialize(Value::Array(vec![
+        Vec::<usize>::deserialize(Value::Array(vec![
             Value::Int(33),
             Value::Int(15),
             Value::Int(44),
