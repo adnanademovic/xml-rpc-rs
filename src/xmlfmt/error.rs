@@ -2,7 +2,7 @@
 use serde::{de, ser};
 use std::fmt::{self, Display};
 
-error_chain!{
+error_chain! {
     foreign_links {
         Fmt(fmt::Error);
     }

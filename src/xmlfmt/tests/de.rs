@@ -123,7 +123,8 @@ fn reads_vector_as_array() {
             Value::Int(15),
             Value::Int(44),
             Value::Int(12),
-        ])).unwrap()
+        ]))
+        .unwrap()
     );
     assert_eq!(
         vec!['a', 'b', 'c', 'd'],
@@ -132,7 +133,8 @@ fn reads_vector_as_array() {
             Value::String("b".into()),
             Value::String("c".into()),
             Value::String("d".into()),
-        ])).unwrap()
+        ]))
+        .unwrap()
     );
 }
 
@@ -148,7 +150,8 @@ fn reads_tuple_as_array() {
             Value::String("1000000000000".into()),
             Value::String("hello".into()),
             Value::Bool(true),
-        ])).unwrap()
+        ]))
+        .unwrap()
     );
 }
 

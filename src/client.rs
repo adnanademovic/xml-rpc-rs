@@ -46,7 +46,8 @@ impl Client {
         let body_str = Call {
             name: name.into(),
             params,
-        }.to_xml();
+        }
+        .to_xml();
         let bytes: &[u8] = body_str.as_bytes();
         let body = hyper10::client::Body::BufBody(bytes, bytes.len());
 

@@ -232,7 +232,8 @@ fn writes_struct_as_struct() {
             bar: 1_000_000_000_000u64,
             baz: "hello".into(),
             qux: true,
-        }.serialize(Serializer {})
+        }
+        .serialize(Serializer {})
         .unwrap(),
         Value::Struct(members)
     );
@@ -413,7 +414,8 @@ fn writes_variant_as_one_member_struct() {
         Helper::Qux {
             alpha: -4,
             beta: vec![true, false, true],
-        }.serialize(Serializer {})
+        }
+        .serialize(Serializer {})
         .unwrap(),
         Value::Struct(members)
     );

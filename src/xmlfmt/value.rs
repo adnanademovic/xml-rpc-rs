@@ -127,7 +127,8 @@ impl ToXml for Value {
                         "<member><name>{}</name>{}</member>",
                         key,
                         value.to_xml()
-                    )).collect::<String>()
+                    ))
+                    .collect::<String>()
             ),
         }
     }

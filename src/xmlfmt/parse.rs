@@ -18,7 +18,8 @@ fn wrap_in_string(content: String) -> String {
             "<value><string></string></value>",
         ),
         "<value><string>$rest</string></value>",
-    ).into()
+    )
+    .into()
 }
 
 #[allow(dead_code)]
