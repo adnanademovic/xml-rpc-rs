@@ -10,7 +10,7 @@ version = "0.0.12"
 [dependencies]
 base64 = "0.13.0"
 error-chain = "0.12.4"
-hyper = "0.10.15"
+reqwest = { version = "0.11.2", features = ["blocking"] }
 lazy_static = "1.0.0"
 regex = "1.4.5"
 serde = "1.0.11"

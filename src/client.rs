@@ -1,12 +1,10 @@
 use super::error::{Result, ResultExt};
 use super::xmlfmt::{from_params, into_params, parse, Call, Fault, Params, Response};
-use hyper::{self, Client as HyperClient};
+use reqwest::blocking::{Body, Client as ReqwestClient};
+use reqwest::header::{self, HeaderMap, HeaderValue};
 use serde::{Deserialize, Serialize};
 use std;
 use Url;
-
-use hyper::header::Headers;
-header! { (ContentType, "ContentType") => [String] }
 
 pub fn call_value<Tkey>(uri: &Url, name: Tkey, params: Params) -> Result<Response>
 where
@@ -29,13 +27,13 @@ where
 }
 
 pub struct Client {
-    client: HyperClient,
+    client: ReqwestClient,
 }
 
 impl Client {
     pub fn new() -> Result<Client> {
-        let client = HyperClient::new();
-        Ok(Client { client: client })
+        let client = ReqwestClient::new();
+        Ok(Client { client })
     }
 
     pub fn call_value<Tkey>(&mut self, uri: &Url, name: Tkey, params: Params) -> Result<Response>
@@ -48,11 +46,11 @@ impl Client {
             params,
         }
         .to_xml();
-        let bytes: &[u8] = body_str.as_bytes();
-        let body = hyper::client::Body::BufBody(bytes, bytes.len());
+        let bytes = body_str.into_bytes();
+        let body = Body::from(bytes);
 
-        let mut headers = Headers::new();
-        headers.set(ContentType("xml".to_owned()));
+        let mut headers = HeaderMap::new();
+        headers.insert(header::CONTENT_TYPE, HeaderValue::from_static("xml"));
 
         let response = self
             .client
