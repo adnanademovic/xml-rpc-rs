@@ -1,5 +1,3 @@
-extern crate xml_rpc;
-
 use std::net::{IpAddr, SocketAddr};
 use std::time::Duration;
 use xml_rpc::{call, Server};

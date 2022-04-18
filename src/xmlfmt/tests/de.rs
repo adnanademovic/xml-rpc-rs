@@ -1,6 +1,5 @@
 use super::super::Value;
 use serde::Deserialize;
-use serde_bytes;
 use std::collections::HashMap;
 
 #[test]

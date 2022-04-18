@@ -4,7 +4,6 @@ use serde::de::{
     DeserializeSeed, EnumAccess, MapAccess, SeqAccess, Unexpected, VariantAccess, Visitor,
 };
 use serde::{self, Deserializer};
-use std;
 use std::collections::HashMap;
 use std::vec;
 

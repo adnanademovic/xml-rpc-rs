@@ -11,11 +11,9 @@ extern crate lazy_static;
 extern crate regex;
 #[macro_use]
 extern crate serde;
+pub extern crate rouille;
 #[cfg(test)]
 extern crate serde_bytes;
-#[macro_use]
-extern crate serde_derive;
-pub extern crate rouille;
 extern crate serde_xml_rs;
 extern crate xml;
 
