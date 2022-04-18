@@ -11,11 +11,11 @@ edition = "2021"
 [dependencies]
 base64 = "0.13.0"
 error-chain = "0.12.4"
-hyper = "0.10.15"
 lazy_static = "1.4.0"
 regex = "1.5.5"
 rouille = "3.5.0"
 serde = { version = "1.0.136", features = ["derive"] }
 serde-xml-rs = "0.5.1"
 serde_bytes = "0.11.5"
+ureq = "2.4.0"
 xml-rs = "0.8.4"

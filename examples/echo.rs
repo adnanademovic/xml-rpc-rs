@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::{net, thread};
-use xml_rpc::{Client, Fault, Server};
+use xml_rpc::{call, Fault, Server};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct TestStruct {
@@ -29,17 +29,16 @@ pub fn main() {
         println!("{}", socket);
         bound_server.run()
     });
-    let mut client = Client::new().unwrap();
     let req = TestStruct {
         foo: 42,
         bar: "baz".into(),
     };
     println!("Sending: {:?}", req);
-    let uri = "http://localhost:8080/".parse().unwrap();
-    let res: Result<Result<TestStruct, _>, _> = client.call(&uri, "echo", req.clone());
+    let uri = "http://localhost:8080/";
+    let res: Result<Result<TestStruct, _>, _> = call(uri, "echo", req.clone());
     println!("Echo Received: {:?}", res);
-    let res: Result<Result<TestStruct, _>, _> = client.call(&uri, "double", req.clone());
+    let res: Result<Result<TestStruct, _>, _> = call(uri, "double", req.clone());
     println!("Double Received: {:?}", res);
-    let res: Result<Result<TestStruct, _>, _> = client.call(&uri, "invalid", req);
+    let res: Result<Result<TestStruct, _>, _> = call(uri, "invalid", req);
     println!("Invalid Received: {:?}", res);
 }
