@@ -1,17 +1,17 @@
-use super::error::{Error, Result};
 use super::Value;
+use crate::{XmlRpcError, XmlRpcResult};
 use serde::de::{
     DeserializeSeed, EnumAccess, MapAccess, SeqAccess, Unexpected, VariantAccess, Visitor,
 };
-use serde::{self, Deserializer};
+use serde::{self, forward_to_deserialize_any, Deserializer};
 use std::collections::HashMap;
 use std::vec;
 
 impl<'de> serde::Deserializer<'de> for Value {
-    type Error = Error;
+    type Error = XmlRpcError;
 
     #[inline]
-    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_any<V>(self, visitor: V) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -52,7 +52,7 @@ impl<'de> serde::Deserializer<'de> for Value {
         }
     }
 
-    fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_bool<V>(self, visitor: V) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -70,7 +70,7 @@ impl<'de> serde::Deserializer<'de> for Value {
         }
     }
 
-    fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_i8<V>(self, visitor: V) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -78,7 +78,7 @@ impl<'de> serde::Deserializer<'de> for Value {
         visitor.visit_i8(v)
     }
 
-    fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_i16<V>(self, visitor: V) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -86,7 +86,7 @@ impl<'de> serde::Deserializer<'de> for Value {
         visitor.visit_i16(v)
     }
 
-    fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_i32<V>(self, visitor: V) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -94,7 +94,7 @@ impl<'de> serde::Deserializer<'de> for Value {
         visitor.visit_i32(v)
     }
 
-    fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_i64<V>(self, visitor: V) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -102,7 +102,7 @@ impl<'de> serde::Deserializer<'de> for Value {
         visitor.visit_i64(v)
     }
 
-    fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_u8<V>(self, visitor: V) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -110,7 +110,7 @@ impl<'de> serde::Deserializer<'de> for Value {
         visitor.visit_u8(v)
     }
 
-    fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_u16<V>(self, visitor: V) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -118,7 +118,7 @@ impl<'de> serde::Deserializer<'de> for Value {
         visitor.visit_u16(v)
     }
 
-    fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_u32<V>(self, visitor: V) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -126,7 +126,7 @@ impl<'de> serde::Deserializer<'de> for Value {
         visitor.visit_u32(v)
     }
 
-    fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_u64<V>(self, visitor: V) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -134,14 +134,14 @@ impl<'de> serde::Deserializer<'de> for Value {
         visitor.visit_u64(v)
     }
 
-    fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_f32<V>(self, visitor: V) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
         match self {
             Value::Double(v) => visitor.visit_f32(v as f32),
             Value::String(v) => {
-                let x: Result<f32> = v
+                let x: XmlRpcResult<f32> = v
                     .parse()
                     .map_err(|_| serde::de::Error::invalid_value(Unexpected::Str(&v), &visitor));
                 visitor.visit_f32(x?)
@@ -150,14 +150,14 @@ impl<'de> serde::Deserializer<'de> for Value {
         }
     }
 
-    fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_f64<V>(self, visitor: V) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
         match self {
             Value::Double(v) => visitor.visit_f64(v),
             Value::String(v) => {
-                let x: Result<f64> = v
+                let x: XmlRpcResult<f64> = v
                     .parse()
                     .map_err(|_| serde::de::Error::invalid_value(Unexpected::Str(&v), &visitor));
                 visitor.visit_f64(x?)
@@ -166,7 +166,7 @@ impl<'de> serde::Deserializer<'de> for Value {
         }
     }
 
-    fn deserialize_char<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_char<V>(self, visitor: V) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -183,7 +183,7 @@ impl<'de> serde::Deserializer<'de> for Value {
         }
     }
 
-    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_str<V>(self, visitor: V) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -194,7 +194,7 @@ impl<'de> serde::Deserializer<'de> for Value {
         }
     }
 
-    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_string<V>(self, visitor: V) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -205,7 +205,7 @@ impl<'de> serde::Deserializer<'de> for Value {
         }
     }
 
-    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_bytes<V>(self, visitor: V) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -216,7 +216,7 @@ impl<'de> serde::Deserializer<'de> for Value {
         }
     }
 
-    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_byte_buf<V>(self, visitor: V) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -227,7 +227,7 @@ impl<'de> serde::Deserializer<'de> for Value {
         }
     }
 
-    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_option<V>(self, visitor: V) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -248,7 +248,7 @@ impl<'de> serde::Deserializer<'de> for Value {
         }
     }
 
-    fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_unit<V>(self, visitor: V) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -268,28 +268,32 @@ impl<'de> serde::Deserializer<'de> for Value {
         }
     }
 
-    fn deserialize_unit_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
+    fn deserialize_unit_struct<V>(self, _name: &'static str, visitor: V) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
         self.deserialize_unit(visitor)
     }
 
-    fn deserialize_newtype_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
+    fn deserialize_newtype_struct<V>(
+        self,
+        _name: &'static str,
+        visitor: V,
+    ) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
         visitor.visit_newtype_struct(self)
     }
 
-    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_seq<V>(self, visitor: V) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
         self.deserialize_any(visitor)
     }
 
-    fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value>
+    fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -301,14 +305,14 @@ impl<'de> serde::Deserializer<'de> for Value {
         _name: &'static str,
         _len: usize,
         visitor: V,
-    ) -> Result<V::Value>
+    ) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
         self.deserialize_any(visitor)
     }
 
-    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_map<V>(self, visitor: V) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -320,7 +324,7 @@ impl<'de> serde::Deserializer<'de> for Value {
         _name: &'static str,
         _fields: &'static [&'static str],
         visitor: V,
-    ) -> Result<V::Value>
+    ) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -332,7 +336,7 @@ impl<'de> serde::Deserializer<'de> for Value {
         _name: &'static str,
         _variants: &'static [&'static str],
         visitor: V,
-    ) -> Result<V::Value>
+    ) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -377,10 +381,10 @@ impl SeqDeserializer {
 }
 
 impl<'de> serde::Deserializer<'de> for SeqDeserializer {
-    type Error = Error;
+    type Error = XmlRpcError;
 
     #[inline]
-    fn deserialize_any<V>(mut self, visitor: V) -> Result<V::Value>
+    fn deserialize_any<V>(mut self, visitor: V) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -405,9 +409,9 @@ impl<'de> serde::Deserializer<'de> for SeqDeserializer {
 }
 
 impl<'de> SeqAccess<'de> for SeqDeserializer {
-    type Error = Error;
+    type Error = XmlRpcError;
 
-    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
+    fn next_element_seed<T>(&mut self, seed: T) -> XmlRpcResult<Option<T::Value>>
     where
         T: DeserializeSeed<'de>,
     {
@@ -440,9 +444,9 @@ impl MapDeserializer {
 }
 
 impl<'de> MapAccess<'de> for MapDeserializer {
-    type Error = Error;
+    type Error = XmlRpcError;
 
-    fn next_key_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
+    fn next_key_seed<T>(&mut self, seed: T) -> XmlRpcResult<Option<T::Value>>
     where
         T: DeserializeSeed<'de>,
     {
@@ -455,7 +459,7 @@ impl<'de> MapAccess<'de> for MapDeserializer {
         }
     }
 
-    fn next_value_seed<T>(&mut self, seed: T) -> Result<T::Value>
+    fn next_value_seed<T>(&mut self, seed: T) -> XmlRpcResult<T::Value>
     where
         T: DeserializeSeed<'de>,
     {
@@ -474,10 +478,10 @@ impl<'de> MapAccess<'de> for MapDeserializer {
 }
 
 impl<'de> serde::Deserializer<'de> for MapDeserializer {
-    type Error = Error;
+    type Error = XmlRpcError;
 
     #[inline]
-    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_any<V>(self, visitor: V) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -497,10 +501,10 @@ struct EnumDeserializer {
 }
 
 impl<'de> EnumAccess<'de> for EnumDeserializer {
-    type Error = Error;
+    type Error = XmlRpcError;
     type Variant = Value;
 
-    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Value)>
+    fn variant_seed<V>(self, seed: V) -> XmlRpcResult<(V::Value, Value)>
     where
         V: DeserializeSeed<'de>,
     {
@@ -511,9 +515,9 @@ impl<'de> EnumAccess<'de> for EnumDeserializer {
 }
 
 impl<'de> VariantAccess<'de> for Value {
-    type Error = Error;
+    type Error = XmlRpcError;
 
-    fn unit_variant(self) -> Result<()> {
+    fn unit_variant(self) -> XmlRpcResult<()> {
         if let Value::Struct(v) = self {
             if !v.is_empty() {
                 return Err(serde::de::Error::invalid_value(
@@ -530,21 +534,25 @@ impl<'de> VariantAccess<'de> for Value {
         }
     }
 
-    fn newtype_variant_seed<T>(self, seed: T) -> Result<T::Value>
+    fn newtype_variant_seed<T>(self, seed: T) -> XmlRpcResult<T::Value>
     where
         T: DeserializeSeed<'de>,
     {
         seed.deserialize(self)
     }
 
-    fn tuple_variant<V>(self, _len: usize, visitor: V) -> Result<V::Value>
+    fn tuple_variant<V>(self, _len: usize, visitor: V) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
         self.deserialize_seq(visitor)
     }
 
-    fn struct_variant<V>(self, fields: &'static [&'static str], visitor: V) -> Result<V::Value>
+    fn struct_variant<V>(
+        self,
+        fields: &'static [&'static str],
+        visitor: V,
+    ) -> XmlRpcResult<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -578,7 +586,7 @@ impl FromI32 for i64 {
     }
 }
 
-fn handle_integer<'de, T, V>(value: Value, visitor: &V) -> Result<T>
+fn handle_integer<'de, T, V>(value: Value, visitor: &V) -> XmlRpcResult<T>
 where
     T: FromI32 + std::str::FromStr,
     V: Visitor<'de>,

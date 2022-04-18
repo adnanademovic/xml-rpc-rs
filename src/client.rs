@@ -1,9 +1,9 @@
-use super::error::{Result, ResultExt};
 use super::xmlfmt::{from_params, into_params, parse, Call, Fault, Params, Response};
+use crate::XmlRpcResult;
 use serde::{Deserialize, Serialize};
 use std;
 
-pub fn call_value<Tkey>(uri: &str, name: Tkey, params: Params) -> Result<Response>
+pub fn call_value<Tkey>(uri: &str, name: Tkey, params: Params) -> XmlRpcResult<Response>
 where
     Tkey: Into<String>,
 {
@@ -16,8 +16,7 @@ where
 
     let response = ureq::post(uri)
         .set("Content-Type", "text/xml")
-        .send_string(&body_str)
-        .chain_err(|| "Failed to run the HTTP request within ureq.")?
+        .send_string(&body_str)?
         .into_reader();
 
     parse::response(response).map_err(Into::into)
@@ -27,7 +26,7 @@ pub fn call<'a, Tkey, Treq, Tres>(
     uri: &str,
     name: Tkey,
     req: Treq,
-) -> Result<std::result::Result<Tres, Fault>>
+) -> XmlRpcResult<std::result::Result<Tres, Fault>>
 where
     Tkey: Into<String>,
     Treq: Serialize,

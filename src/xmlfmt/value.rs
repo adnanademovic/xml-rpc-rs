@@ -1,5 +1,5 @@
 use base64;
-use serde::de::Unexpected;
+use serde::{de::Unexpected, Deserialize};
 use std;
 use std::collections::HashMap;
 use xml::escape::escape_str_pcdata;

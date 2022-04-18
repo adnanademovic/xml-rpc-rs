@@ -3,20 +3,20 @@ use serde::{Deserialize, Serialize};
 use std;
 use std::collections::HashMap;
 
-use super::error::{ErrorKind, Result};
-use super::xmlfmt::{error, from_params, into_params, parse, Call, Fault, Response, Value};
+use super::xmlfmt::{from_params, into_params, parse, Call, Fault, Response, Value};
+use crate::{XmlRpcError, XmlRpcResult};
 
 type Handler = Box<dyn Fn(Vec<Value>) -> Response + Send + Sync>;
 type HandlerMap = HashMap<String, Handler>;
 
-pub fn on_decode_fail(err: &error::Error) -> Response {
+pub fn on_decode_fail(err: &XmlRpcError) -> Response {
     Err(Fault::new(
         400,
         format!("Failed to decode request: {}", err),
     ))
 }
 
-pub fn on_encode_fail(err: &error::Error) -> Response {
+pub fn on_encode_fail(err: &XmlRpcError) -> Response {
     Err(Fault::new(
         500,
         format!("Failed to encode response: {}", err),
@@ -65,8 +65,8 @@ impl Server {
         Treq: Deserialize<'a>,
         Tres: Serialize,
         Thandler: Fn(Treq) -> std::result::Result<Tres, Fault> + Send + Sync + 'static,
-        Tef: Fn(&error::Error) -> Response + Send + Sync + 'static,
-        Tdf: Fn(&error::Error) -> Response + Send + Sync + 'static,
+        Tef: Fn(&XmlRpcError) -> Response + Send + Sync + 'static,
+        Tdf: Fn(&XmlRpcError) -> Response + Send + Sync + 'static,
     {
         self.register_value(name, move |req| {
             let params = match from_params(req) {
@@ -98,10 +98,11 @@ impl Server {
     pub fn bind(
         self,
         uri: &std::net::SocketAddr,
-    ) -> Result<BoundServer<impl Fn(&rouille::Request) -> rouille::Response + Send + Sync + 'static>>
-    {
+    ) -> XmlRpcResult<
+        BoundServer<impl Fn(&rouille::Request) -> rouille::Response + Send + Sync + 'static>,
+    > {
         rouille::Server::new(uri, move |req| self.handle_outer(req))
-            .map_err(|err| ErrorKind::BindFail(format!("{err}")).into())
+            .map_err(|err| XmlRpcError::BindFail(format!("{err}")))
             .map(BoundServer::new)
     }
 
