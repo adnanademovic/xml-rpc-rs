@@ -386,7 +386,7 @@ impl<'de> serde::Deserializer<'de> for SeqDeserializer {
         V: Visitor<'de>,
     {
         let len = self.iter.len();
-        let ret = try!(visitor.visit_seq(&mut self));
+        let ret = visitor.visit_seq(&mut self)?;
         let remaining = self.iter.len();
         if remaining == 0 {
             Ok(ret)

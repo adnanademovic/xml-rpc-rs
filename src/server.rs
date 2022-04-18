@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use super::error::{ErrorKind, Result};
 use super::xmlfmt::{error, from_params, into_params, parse, Call, Fault, Response, Value};
 
-type Handler = Box<Fn(Vec<Value>) -> Response + Send + Sync>;
+type Handler = Box<dyn Fn(Vec<Value>) -> Response + Send + Sync>;
 type HandlerMap = HashMap<String, Handler>;
 
 pub fn on_decode_fail(err: &error::Error) -> Response {
@@ -101,7 +101,7 @@ impl Server {
     ) -> Result<BoundServer<impl Fn(&rouille::Request) -> rouille::Response + Send + Sync + 'static>>
     {
         rouille::Server::new(uri, move |req| self.handle_outer(req))
-            .map_err(|err| ErrorKind::BindFail(err.description().into()).into())
+            .map_err(|err| ErrorKind::BindFail(format!("{err}")).into())
             .map(BoundServer::new)
     }
 

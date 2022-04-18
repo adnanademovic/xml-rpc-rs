@@ -28,7 +28,7 @@ impl de::Error for Error {
         ErrorKind::Decoding(format!("{}", msg)).into()
     }
 
-    fn invalid_type(unexp: de::Unexpected, exp: &de::Expected) -> Self {
+    fn invalid_type(unexp: de::Unexpected, exp: &dyn de::Expected) -> Self {
         Error::custom(format_args!("invalid type: {}, expected {}", unexp, exp))
     }
 }

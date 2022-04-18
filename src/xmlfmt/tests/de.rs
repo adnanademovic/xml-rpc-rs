@@ -163,7 +163,7 @@ fn reads_struct_as_struct() {
         bar: u64,
         baz: String,
         qux: bool,
-    };
+    }
 
     let mut members = HashMap::new();
     members.insert("foo".into(), Value::Int(4));
@@ -290,7 +290,7 @@ fn reads_variant_as_one_member_struct() {
         Bar(i32),
         Baz(bool, String),
         Qux { alpha: i32, beta: Vec<bool> },
-    };
+    }
 
     let mut members = HashMap::new();
     members.insert("Foo".into(), Value::Struct(HashMap::new()));
