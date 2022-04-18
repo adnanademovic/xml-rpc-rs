@@ -1,9 +1,9 @@
 use super::error::{Result, ResultExt};
 use super::xmlfmt::{from_params, into_params, parse, Call, Fault, Params, Response};
+use crate::Url;
 use hyper::{self, Client as HyperClient};
 use serde::{Deserialize, Serialize};
 use std;
-use Url;
 
 use hyper::header::Headers;
 header! { (ContentType, "ContentType") => [String] }
