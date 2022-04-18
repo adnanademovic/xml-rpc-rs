@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::num::ParseFloatError;
 
 fn wrap_in_string(content: String) -> String {
-    lazy_static! {
+    lazy_static::lazy_static! {
         static ref RE1: Regex = Regex::new(r"<value\s*/>").unwrap();
         static ref RE2: Regex = Regex::new(r"<value\s*>\s*<string\s*/>\s*</value\s*>").unwrap();
         static ref RE3: Regex = Regex::new(r"<value\s*>(?P<rest>[^<>]*)</value\s*>").unwrap();
