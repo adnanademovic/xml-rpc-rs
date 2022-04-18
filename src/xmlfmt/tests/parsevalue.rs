@@ -2,7 +2,7 @@ use super::super::*;
 use serde::Deserialize;
 use std::collections::HashMap;
 
-static BAD_DATA: &'static str = "Bad data provided";
+static BAD_DATA: &str = "Bad data provided";
 
 #[test]
 fn reads_pod_xml_value() {

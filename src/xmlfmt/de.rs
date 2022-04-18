@@ -344,7 +344,7 @@ impl<'de> serde::Deserializer<'de> for Value {
                     if member_iter.next().is_none() {
                         return visitor.visit_enum(EnumDeserializer {
                             variant: key,
-                            value: value,
+                            value,
                         });
                     }
                 }

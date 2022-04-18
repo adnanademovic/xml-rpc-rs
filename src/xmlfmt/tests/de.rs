@@ -5,8 +5,8 @@ use std::collections::HashMap;
 
 #[test]
 fn reads_bool() {
-    assert_eq!(true, bool::deserialize(Value::Bool(true)).unwrap());
-    assert_eq!(false, bool::deserialize(Value::Bool(false)).unwrap());
+    assert!(bool::deserialize(Value::Bool(true)).unwrap());
+    assert!(!bool::deserialize(Value::Bool(false)).unwrap());
 }
 
 #[test]
@@ -21,17 +21,17 @@ fn reads_integers_as_ints_or_strings_if_too_big() {
         10_000_000_000_000_000_000u64,
         u64::deserialize(Value::String("10000000000000000000".into())).unwrap()
     );
-    assert_eq!((-42 as i8), i8::deserialize(Value::Int(-42)).unwrap());
+    assert_eq!((-42_i8), i8::deserialize(Value::Int(-42)).unwrap());
     assert_eq!(
-        (-26_000 as i16),
+        (-26_000_i16),
         i16::deserialize(Value::Int(-26_000)).unwrap()
     );
     assert_eq!(
-        (-2_000_000_000 as i32),
+        (-2_000_000_000_i32),
         i32::deserialize(Value::Int(-2000000000)).unwrap()
     );
     assert_eq!(
-        (-8_000_000_000_000_000_000 as i64),
+        (-8_000_000_000_000_000_000_i64),
         i64::deserialize(Value::String("-8000000000000000000".into())).unwrap()
     );
     assert_eq!(42i8, i8::deserialize(Value::Int(42)).unwrap());

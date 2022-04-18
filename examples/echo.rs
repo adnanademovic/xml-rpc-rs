@@ -43,6 +43,6 @@ pub fn main() {
     println!("Echo Received: {:?}", res);
     let res: Result<Result<TestStruct, _>, _> = client.call(&uri, "double", req.clone());
     println!("Double Received: {:?}", res);
-    let res: Result<Result<TestStruct, _>, _> = client.call(&uri, "invalid", req.clone());
+    let res: Result<Result<TestStruct, _>, _> = client.call(&uri, "invalid", req);
     println!("Invalid Received: {:?}", res);
 }
