@@ -3,7 +3,6 @@
 extern crate base64;
 #[macro_use]
 extern crate error_chain;
-extern crate futures;
 #[macro_use]
 extern crate hyper;
 #[macro_use]
