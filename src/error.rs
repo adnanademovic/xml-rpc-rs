@@ -13,11 +13,17 @@ pub enum XmlRpcError {
     #[error("Failed to bind XML-RPC server to port: {0}")]
     BindFail(String),
     #[error("Failed to run the HTTP request within ureq.")]
-    Ureq(#[from] ureq::Error),
+    Ureq(Box<ureq::Error>),
     #[error("IO error")]
     Io(#[from] std::io::Error),
     #[error("Failed to parse XML data")]
     Xml(#[from] serde_xml_rs::Error),
+}
+
+impl From<ureq::Error> for XmlRpcError {
+    fn from(value: ureq::Error) -> Self {
+        XmlRpcError::Ureq(Box::new(value))
+    }
 }
 
 pub type XmlRpcResult<T> = std::result::Result<T, XmlRpcError>;
