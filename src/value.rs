@@ -69,7 +69,7 @@ pub enum Value {
     ///     </member>
     /// </struct>
     /// ```
-    Struct(HashMap<String, Value>),
+    Struct(Vec<(String, Value)>),
 }
 
 impl Value {
@@ -296,12 +296,8 @@ mod tests {
     fn struct_encoding() {
         assert_eq!(
             "<value><struct></struct></value>",
-            write_string(Value::Struct(HashMap::new()))
+            write_string(Value::Struct(vec![]))
         );
-
-        let mut items = HashMap::new();
-        items.insert("foo".into(), Value::Int(5));
-        items.insert("foo<3".into(), Value::String("foo".into()));
 
         assert_eq!(
             "<value><struct>\
@@ -314,7 +310,10 @@ mod tests {
                     <value><string>foo</string></value>\
                 </member>\
                 </struct></value>",
-            write_string(Value::Struct(items))
+            write_string(Value::Struct(vec![
+                ("foo".into(), Value::Int(5)),
+                ("foo<3".into(), Value::String("foo".into())),
+            ]))
         );
     }
 }
