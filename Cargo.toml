@@ -11,4 +11,5 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.70"
 base64 = "0.21.0"
-quick-xml = { version = "0.28.1" }
+chrono = "0.4.24"
+quick-xml = "0.28.1"

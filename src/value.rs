@@ -1,5 +1,6 @@
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
+use chrono::{DateTime, FixedOffset};
 use quick_xml::events::BytesText;
 use quick_xml::writer::Writer;
 use std::collections::HashMap;
@@ -26,7 +27,7 @@ pub enum Value {
     /// Date/time in the ISO 8601 format.
     ///
     /// Tag: `<dateTime.iso8601>`
-    DateTime(String),
+    DateTime(DateTime<FixedOffset>),
     /// Base64-encoded binary.
     ///
     /// Tag: `<base64>`
@@ -94,7 +95,7 @@ impl Value {
                     .map(|_| ()),
                 Value::DateTime(value) => writer
                     .create_element("dateTime.iso8601")
-                    .write_text_content(BytesText::new(value))
+                    .write_text_content(BytesText::new(&value.to_rfc3339()))
                     .map(|_| ()),
                 Value::Base64(value) => writer
                     .create_element("base64")
@@ -180,5 +181,140 @@ impl<T: Into<Value>> FromIterator<T> for Value {
 impl<T: Into<Value>> FromIterator<(String, T)> for Value {
     fn from_iter<I: IntoIterator<Item = (String, T)>>(iter: I) -> Self {
         Value::Struct(iter.into_iter().map(|(k, v)| (k, v.into())).collect())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    fn write_string(value: Value) -> String {
+        let mut writer = Writer::new(Cursor::new(Vec::new()));
+        value.write_xml(&mut writer).unwrap();
+        String::from_utf8(writer.into_inner().into_inner()).unwrap()
+    }
+
+    #[test]
+    fn integer_encoding() {
+        assert_eq!("<value><i4>12</i4></value>", write_string(Value::Int(12)));
+
+        assert_eq!("<value><i4>-33</i4></value>", write_string(Value::Int(-33)));
+    }
+
+    #[test]
+    fn bool_encoding() {
+        assert_eq!(
+            "<value><boolean>1</boolean></value>",
+            write_string(Value::Bool(true))
+        );
+        assert_eq!(
+            "<value><boolean>0</boolean></value>",
+            write_string(Value::Bool(false))
+        );
+    }
+
+    #[test]
+    fn string_encoding() {
+        assert_eq!(
+            "<value><string>abcd</string></value>",
+            write_string(Value::String("abcd".into()))
+        );
+
+        assert_eq!(
+            "<value><string>abcd&lt;3</string></value>",
+            write_string(Value::String("abcd<3".into()))
+        );
+
+        assert_eq!(
+            "<value><string></string></value>",
+            write_string(Value::String("".into()))
+        );
+    }
+
+    #[test]
+    fn double_encoding() {
+        assert_eq!(
+            "<value><double>2.5</double></value>",
+            write_string(Value::Double(2.5))
+        );
+
+        assert_eq!(
+            "<value><double>-3000000000000</double></value>",
+            write_string(Value::Double(-3_000_000_000_000.0))
+        );
+
+        assert_eq!(
+            "<value><double>inf</double></value>",
+            write_string(Value::Double(f64::INFINITY))
+        );
+
+        assert_eq!(
+            "<value><double>NaN</double></value>",
+            write_string(Value::Double(f64::NAN))
+        );
+    }
+
+    #[test]
+    fn datetime_encoding() {
+        assert_eq!(
+            "<value><dateTime.iso8601>1996-12-19T16:39:57-08:00</dateTime.iso8601></value>",
+            write_string(Value::DateTime(
+                DateTime::parse_from_rfc3339("1996-12-19T16:39:57-08:00").unwrap()
+            ))
+        );
+    }
+
+    #[test]
+    fn base64_encoding() {
+        assert_eq!(
+            "<value><base64>eW91IGNhbid0IHJlYWQgdGhpcyE=</base64></value>",
+            write_string(Value::Base64(b"you can't read this!".to_vec()))
+        );
+    }
+
+    #[test]
+    fn array_encoding() {
+        assert_eq!(
+            "<value><array><data></data></array></value>",
+            write_string(Value::Array(vec![]))
+        );
+
+        assert_eq!(
+            "<value><array><data>\
+                <value><i4>5</i4></value>\
+                <value><string>foo</string></value>\
+                </data></array></value>",
+            write_string(Value::Array(vec![
+                Value::Int(5),
+                Value::String("foo".into()),
+            ]))
+        );
+    }
+
+    #[test]
+    fn struct_encoding() {
+        assert_eq!(
+            "<value><struct></struct></value>",
+            write_string(Value::Struct(HashMap::new()))
+        );
+
+        let mut items = HashMap::new();
+        items.insert("foo".into(), Value::Int(5));
+        items.insert("foo<3".into(), Value::String("foo".into()));
+
+        assert_eq!(
+            "<value><struct>\
+                <member>\
+                    <name>foo</name>\
+                    <value><i4>5</i4></value>\
+                </member>\
+                <member>\
+                    <name>foo&lt;3</name>\
+                    <value><string>foo</string></value>\
+                </member>\
+                </struct></value>",
+            write_string(Value::Struct(items))
+        );
     }
 }
