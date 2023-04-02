@@ -1,6 +1,7 @@
 use crate::Value;
-use std::fmt::{Display, Formatter};
-use xml::escape::escape_str_pcdata;
+use quick_xml::events::BytesText;
+use quick_xml::writer::Writer;
+use std::io::Write;
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Request {
@@ -24,44 +25,66 @@ impl Response {
     }
 }
 
-impl Display for Request {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "<?xml version=\"1.0\"?><methodCall><methodName>{}</methodName><params>",
-            escape_str_pcdata(&self.name),
-        )?;
-        for param in &self.params {
-            write!(f, "<param>{param}</param>")?;
-        }
-        write!(f, "</params></methodCall>")?;
-        Ok(())
+fn write_declaration<W: Write>(writer: &mut Writer<W>) -> quick_xml::Result<()> {
+    use quick_xml::events::{BytesDecl, Event};
+    writer.write_event(Event::Decl(BytesDecl::new("1.0", None, None)))
+}
+
+impl Request {
+    pub fn write_xml<W: Write>(&self, writer: &mut Writer<W>) -> quick_xml::Result<()> {
+        write_declaration(writer)?;
+        writer
+            .create_element("methodCall")
+            .write_inner_content(|writer| {
+                writer
+                    .create_element("methodName")
+                    .write_text_content(BytesText::new(&self.name))?;
+                writer
+                    .create_element("params")
+                    .write_inner_content(|writer| {
+                        for param in &self.params {
+                            writer
+                                .create_element("param")
+                                .write_inner_content(|writer| param.write_xml(writer))?;
+                        }
+                        Ok(())
+                    })?;
+                Ok(())
+            })
+            .map(|_| ())
     }
 }
 
-impl Display for Response {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Response::Success { params } => {
-                write!(f, "<?xml version=\"1.0\"?><methodResponse><params>")?;
-                for param in params {
-                    write!(f, "<param>{param}</param>")?;
-                }
-                write!(f, "</params></methodResponse>")?;
-            }
-            Response::Failure { code, message } => {
-                write!(
-                    f,
-                    "<?xml version=\"1.0\"?>\
-                        <methodResponse><fault><value><struct>\
-                            <member><name>faultCode</name><value><int>{}</int></value></member>\
-                            <member><name>faultString</name><value><string>{}</string></value></member>\
-                        </struct></value></fault></methodResponse>",
-                    code,
-                    escape_str_pcdata(message),
-                )?;
-            }
-        }
-        Ok(())
+impl Response {
+    pub fn write_xml<W: Write>(&self, writer: &mut Writer<W>) -> quick_xml::Result<()> {
+        write_declaration(writer)?;
+        writer
+            .create_element("methodResponse")
+            .write_inner_content(|writer| match self {
+                Response::Success { params } => writer
+                    .create_element("params")
+                    .write_inner_content(|writer| {
+                        for param in params {
+                            writer
+                                .create_element("param")
+                                .write_inner_content(|writer| param.write_xml(writer))?;
+                        }
+                        Ok(())
+                    })
+                    .map(|_| ()),
+                Response::Failure { code, message } => writer
+                    .create_element("fault")
+                    .write_inner_content(|writer| {
+                        [
+                            ("faultCode".into(), Value::from(*code)),
+                            ("faultString".into(), Value::from(message.to_owned())),
+                        ]
+                        .into_iter()
+                        .collect::<Value>()
+                        .write_xml(writer)
+                    })
+                    .map(|_| ()),
+            })
+            .map(|_| ())
     }
 }
