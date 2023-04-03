@@ -115,7 +115,7 @@ impl Value {
             }
             if child.is_element() {
                 return Ok(match child.tag_name().name() {
-                    "i4" => Value::Int(literal_text_in_node(&child).parse()?),
+                    "i4" | "int" => Value::Int(literal_text_in_node(&child).parse()?),
                     "boolean" => Value::Bool(literal_text_in_node(&child).parse::<u8>()? != 0),
                     "string" => Value::String(literal_text_in_node(&child).to_owned()),
                     "double" => Value::Double(literal_text_in_node(&child).parse()?),
