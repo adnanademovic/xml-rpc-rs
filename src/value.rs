@@ -129,6 +129,9 @@ impl Value {
         if let Some(child) = node.children().find(|child| child.is_text()) {
             return Ok(Value::String(child.text().unwrap_or("").into()));
         }
+        if !node.has_children() {
+            return Ok(Value::String(String::new()));
+        }
         bail!("No valid child element found");
     }
 
@@ -137,7 +140,7 @@ impl Value {
             .create_element("value")
             .write_inner_content(|writer| match self {
                 Value::Int(value) => writer
-                    .create_element("i4")
+                    .create_element("int")
                     .write_text_content(BytesText::new(&value.to_string()))
                     .map(|_| ()),
                 Value::Bool(value) => writer
@@ -331,9 +334,12 @@ mod tests {
 
     #[test]
     fn integer_encoding() {
-        assert_eq!("<value><i4>12</i4></value>", write_string(Value::Int(12)));
+        assert_eq!("<value><int>12</int></value>", write_string(Value::Int(12)));
 
-        assert_eq!("<value><i4>-33</i4></value>", write_string(Value::Int(-33)));
+        assert_eq!(
+            "<value><int>-33</int></value>",
+            write_string(Value::Int(-33))
+        );
     }
 
     #[test]
@@ -416,7 +422,7 @@ mod tests {
 
         assert_eq!(
             "<value><array><data>\
-                <value><i4>5</i4></value>\
+                <value><int>5</int></value>\
                 <value><string>foo</string></value>\
                 </data></array></value>",
             write_string(Value::Array(vec![
@@ -437,7 +443,7 @@ mod tests {
             "<value><struct>\
                 <member>\
                     <name>foo</name>\
-                    <value><i4>5</i4></value>\
+                    <value><int>5</int></value>\
                 </member>\
                 <member>\
                     <name>foo&lt;3</name>\
@@ -461,6 +467,13 @@ mod tests {
         assert_eq!(read_string("<value><i4>12</i4></value>"), Value::Int(12));
 
         assert_eq!(read_string("<value><i4>-33</i4></value>"), Value::Int(-33));
+
+        assert_eq!(read_string("<value><int>12</int></value>"), Value::Int(12));
+
+        assert_eq!(
+            read_string("<value><int>-33</int></value>"),
+            Value::Int(-33)
+        );
     }
 
     #[test]
@@ -491,6 +504,20 @@ mod tests {
             read_string("<value><string></string></value>"),
             Value::String("".into())
         );
+
+        assert_eq!(
+            read_string("<value>abcd</value>"),
+            Value::String("abcd".into())
+        );
+
+        assert_eq!(
+            read_string("<value>abcd&lt;3</value>"),
+            Value::String("abcd<3".into())
+        );
+
+        assert_eq!(read_string("<value></value>"), Value::String("".into()));
+
+        assert_eq!(read_string("<value/>"), Value::String("".into()));
     }
 
     #[test]
