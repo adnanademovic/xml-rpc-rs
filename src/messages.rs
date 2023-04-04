@@ -13,6 +13,12 @@ pub struct Request {
     pub params: Vec<Value>,
 }
 
+impl Request {
+    pub fn new(name: String, params: Vec<Value>) -> Self {
+        Self { name, params }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Response {
     Success { params: Vec<Value> },
@@ -53,10 +59,12 @@ fn read_params(node: Node) -> Vec<Value> {
 impl Request {
     pub fn read_xml(data: &str) -> anyhow::Result<Self> {
         let document = Document::parse(data)?;
-        let root = document.root();
-        if !root.has_tag_name("methodCall") {
-            bail!("Expected \"methodCall\" at the root of a request");
-        }
+        let root = document
+            .root()
+            .children()
+            .find(|node| node.has_tag_name("methodCall"))
+            .context("Expected \"methodCall\" at the root of a request")?;
+
         Ok(Self {
             name: literal_text_in_node(
                 root.children()
@@ -95,13 +103,17 @@ impl Request {
 impl Response {
     pub fn read_xml(data: &str) -> anyhow::Result<Self> {
         let document = Document::parse(data)?;
-        let root = document.root();
-        if !root.has_tag_name("methodResponse") {
-            bail!("Expected \"methodResponse\" at the root of a request");
-        }
+        let root = document
+            .root()
+            .children()
+            .find(|node| node.has_tag_name("methodResponse"))
+            .context("Expected \"methodResponse\" at the root of a request")?;
 
         if let Some(fault) = root.children().find(|child| child.has_tag_name("fault")) {
-            let fault_data = Value::read_xml(fault)?;
+            let fault_data = fault
+                .children()
+                .find_map(|n| Value::read_xml(n).ok())
+                .context("Expected valid value inside fault element")?;
             let Value::Struct(fault_data) = fault_data else {
                 bail!("Data inside \"fault\" needs to be a structure");
             };
@@ -148,5 +160,122 @@ impl Response {
                     .map(|_| ()),
             })
             .map(|_| ())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn decodes_success_response() {
+        assert_eq!(
+            Response::success(vec![
+                Value::String("South Dakota".into()),
+                Value::Struct(vec![
+                    ("foo".into(), Value::Int(42)),
+                    ("bar".into(), Value::String("baz".into())),
+                    ("bar2".into(), Value::String("baz2".into())),
+                ]),
+            ]),
+            Response::read_xml(
+                r#"<?xml version="1.0"?>
+<methodResponse>
+    <params>
+        <param>
+            <value><string>South Dakota</string></value>
+        </param>
+        <param>
+            <value>
+                <struct>
+                    <member>
+                        <name>foo</name>
+                        <value><i4>42</i4></value>
+                    </member>
+                    <member>
+                        <name>bar</name>
+                        <value><string>baz</string></value>
+                    </member>
+                    <member>
+                        <name>bar2</name>
+                        <value>baz2</value>
+                    </member>
+                </struct>
+            </value>
+        </param>
+    </params>
+</methodResponse>"#
+            )
+            .unwrap(),
+        );
+    }
+
+    #[test]
+    fn decodes_failure_response() {
+        assert_eq!(
+            Response::failure(4, "Too many parameters.".into()),
+            Response::read_xml(
+                r#"<?xml version="1.0"?>
+<methodResponse>
+    <fault>
+        <value>
+            <struct>
+                <member>
+                    <name>faultCode</name>
+                    <value><int>4</int></value>
+                </member>
+                <member>
+                    <name>faultString</name>
+                    <value><string>Too many parameters.</string></value>
+                </member>
+            </struct>
+        </value>
+    </fault>
+</methodResponse>"#
+            )
+            .unwrap(),
+        );
+    }
+
+    #[test]
+    fn decodes_request() {
+        assert_eq!(
+            Request::new(
+                "foobar".into(),
+                vec![
+                    Value::String("South Dakota".into()),
+                    Value::Struct(vec![
+                        ("foo".into(), Value::Int(42)),
+                        ("bar".into(), Value::String("baz".into())),
+                    ])
+                ]
+            ),
+            Request::read_xml(
+                r#"<?xml version="1.0"?>
+<methodCall>
+    <methodName>foobar</methodName>
+    <params>
+        <param>
+            <value><string>South Dakota</string></value>
+        </param>
+        <param>
+            <value>
+                <struct>
+                    <member>
+                        <name>foo</name>
+                        <value><i4>42</i4></value>
+                    </member>
+                    <member>
+                        <name>bar</name>
+                        <value><string>baz</string></value>
+                    </member>
+                </struct>
+            </value>
+        </param>
+    </params>
+</methodCall>"#
+            )
+            .unwrap(),
+        );
     }
 }
