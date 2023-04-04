@@ -322,6 +322,7 @@ impl<T: Into<Value>> FromIterator<(String, T)> for Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use roxmltree::Document;
     use std::io::Cursor;
 
     fn write_string(value: Value) -> String {
@@ -449,6 +450,134 @@ mod tests {
                 ("foo".into(), Value::Int(5)),
                 ("foo<3".into(), Value::String("foo".into())),
             ]))
+        );
+    }
+
+    fn read_string(value: &str) -> Value {
+        let document = Document::parse(value).unwrap();
+        Value::read_xml(document.root().first_child().unwrap()).unwrap()
+    }
+
+    #[test]
+    fn integer_decoding() {
+        assert_eq!(read_string("<value><i4>12</i4></value>"), Value::Int(12));
+
+        assert_eq!(read_string("<value><i4>-33</i4></value>"), Value::Int(-33));
+    }
+
+    #[test]
+    fn bool_decoding() {
+        assert_eq!(
+            read_string("<value><boolean>1</boolean></value>"),
+            Value::Bool(true)
+        );
+        assert_eq!(
+            read_string("<value><boolean>0</boolean></value>"),
+            Value::Bool(false)
+        );
+    }
+
+    #[test]
+    fn string_decoding() {
+        assert_eq!(
+            read_string("<value><string>abcd</string></value>"),
+            Value::String("abcd".into())
+        );
+
+        assert_eq!(
+            read_string("<value><string>abcd&lt;3</string></value>"),
+            Value::String("abcd<3".into())
+        );
+
+        assert_eq!(
+            read_string("<value><string></string></value>"),
+            Value::String("".into())
+        );
+    }
+
+    #[test]
+    fn double_decoding() {
+        assert_eq!(
+            read_string("<value><double>2.5</double></value>"),
+            Value::Double(2.5)
+        );
+
+        assert_eq!(
+            read_string("<value><double>-3000000000000</double></value>"),
+            Value::Double(-3_000_000_000_000.0)
+        );
+
+        assert_eq!(
+            read_string("<value><double>inf</double></value>"),
+            Value::Double(f64::INFINITY)
+        );
+
+        assert!(read_string("<value><double>NaN</double></value>")
+            .into_f64()
+            .unwrap()
+            .is_nan());
+    }
+
+    #[test]
+    fn datetime_decoding() {
+        assert_eq!(
+            read_string(
+                "<value><dateTime.iso8601>1996-12-19T16:39:57-08:00</dateTime.iso8601></value>"
+            ),
+            Value::DateTime(DateTime::parse_from_rfc3339("1996-12-19T16:39:57-08:00").unwrap())
+        );
+    }
+
+    #[test]
+    fn base64_decoding() {
+        assert_eq!(
+            read_string("<value><base64>eW91IGNhbid0IHJlYWQgdGhpcyE=</base64></value>"),
+            Value::Base64(b"you can't read this!".to_vec())
+        );
+    }
+
+    #[test]
+    fn array_decoding() {
+        assert_eq!(
+            read_string("<value><array><data></data></array></value>"),
+            Value::Array(vec![])
+        );
+
+        assert_eq!(
+            read_string(
+                "<value><array><data>\
+                <value><i4>5</i4></value>\
+                <value><string>foo</string></value>\
+                </data></array></value>"
+            ),
+            Value::Array(vec![Value::Int(5), Value::String("foo".into()),])
+        );
+    }
+
+    #[test]
+    fn struct_decoding() {
+        assert_eq!(
+            read_string("<value><struct></struct></value>"),
+            Value::Struct(vec![])
+        );
+
+        assert_eq!(
+            read_string(
+                "<value><struct>\
+                <member>\
+                    <name>foo</name>\
+                    <value><i4>5</i4></value>\
+                </member>\
+                <member>\
+                    <name>foo&lt;3</name>\
+                    <value><string>foo</string></value>\
+                </member>\
+                </struct></value>"
+            ),
+            Value::Struct(vec![
+                ("foo".into(), Value::Int(5)),
+                ("foo<3".into(), Value::String("foo".into())),
+            ])
         );
     }
 }
