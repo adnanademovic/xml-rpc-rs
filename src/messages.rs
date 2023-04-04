@@ -5,7 +5,7 @@ use quick_xml::events::BytesText;
 use quick_xml::writer::Writer;
 use roxmltree::{Document, Node};
 use std::collections::HashMap;
-use std::io::Write;
+use std::io::{Cursor, Write};
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Request {
@@ -76,7 +76,19 @@ impl Request {
         })
     }
 
-    pub fn write_xml<W: Write>(&self, writer: &mut Writer<W>) -> quick_xml::Result<()> {
+    pub fn write_xml<W: Write>(&self, w: W) -> anyhow::Result<()> {
+        let mut writer = Writer::new(w);
+        self.write_xml_with_writer(&mut writer)?;
+        Ok(())
+    }
+
+    pub fn write_xml_string(&self) -> anyhow::Result<String> {
+        let mut cursor = Cursor::new(Vec::new());
+        self.write_xml(&mut cursor)?;
+        Ok(String::from_utf8(cursor.into_inner())?)
+    }
+
+    fn write_xml_with_writer<W: Write>(&self, writer: &mut Writer<W>) -> quick_xml::Result<()> {
         write_declaration(writer)?;
         writer
             .create_element("methodCall")
@@ -130,7 +142,19 @@ impl Response {
         }
     }
 
-    pub fn write_xml<W: Write>(&self, writer: &mut Writer<W>) -> quick_xml::Result<()> {
+    pub fn write_xml<W: Write>(&self, w: W) -> anyhow::Result<()> {
+        let mut writer = Writer::new(w);
+        self.write_xml_with_writer(&mut writer)?;
+        Ok(())
+    }
+
+    pub fn write_xml_string(&self) -> anyhow::Result<String> {
+        let mut cursor = Cursor::new(Vec::new());
+        self.write_xml(&mut cursor)?;
+        Ok(String::from_utf8(cursor.into_inner())?)
+    }
+
+    pub fn write_xml_with_writer<W: Write>(&self, writer: &mut Writer<W>) -> quick_xml::Result<()> {
         write_declaration(writer)?;
         writer
             .create_element("methodResponse")
@@ -168,6 +192,115 @@ mod tests {
     use super::*;
 
     #[test]
+    fn encodes_success_response() {
+        assert_eq!(
+            Response::success(vec![
+                Value::String("South Dakota".into()),
+                Value::Struct(vec![
+                    ("foo".into(), Value::Int(42)),
+                    ("bar".into(), Value::String("baz".into())),
+                    ("bar2".into(), Value::String("baz2".into())),
+                ]),
+            ])
+            .write_xml_string()
+            .unwrap(),
+            "<?xml version=\"1.0\"?>\
+            <methodResponse>\
+                <params>\
+                    <param>\
+                        <value><string>South Dakota</string></value>\
+                    </param>\
+                    <param>\
+                        <value>\
+                            <struct>\
+                                <member>\
+                                    <name>foo</name>\
+                                    <value><int>42</int></value>\
+                                </member>\
+                                <member>\
+                                    <name>bar</name>\
+                                    <value><string>baz</string></value>\
+                                </member>\
+                                <member>\
+                                    <name>bar2</name>\
+                                    <value><string>baz2</string></value>\
+                                </member>\
+                            </struct>\
+                        </value>\
+                    </param>\
+                </params>\
+            </methodResponse>",
+        );
+    }
+
+    #[test]
+    fn encodes_failure_response() {
+        assert_eq!(
+            Response::failure(4, "Too many parameters.".into())
+                .write_xml_string()
+                .unwrap(),
+            "<?xml version=\"1.0\"?>\
+            <methodResponse>\
+                <fault>\
+                    <value>\
+                        <struct>\
+                            <member>\
+                                <name>faultCode</name>\
+                                <value><int>4</int></value>\
+                            </member>\
+                            <member>\
+                                <name>faultString</name>\
+                                <value><string>Too many parameters.</string></value>\
+                            </member>\
+                        </struct>\
+                    </value>\
+                </fault>\
+            </methodResponse>",
+        );
+    }
+
+    #[test]
+    fn encodes_request() {
+        assert_eq!(
+            Request::new(
+                "foobar".into(),
+                vec![
+                    Value::String("South Dakota".into()),
+                    Value::Struct(vec![
+                        ("foo".into(), Value::Int(42)),
+                        ("bar".into(), Value::String("baz".into())),
+                    ])
+                ]
+            )
+            .write_xml_string()
+            .unwrap(),
+            "<?xml version=\"1.0\"?>\
+            <methodCall>\
+                <methodName>foobar</methodName>\
+                <params>\
+                    <param>\
+                        <value><string>South Dakota</string></value>\
+                    </param>\
+                    <param>\
+                        <value>\
+                            <struct>\
+                                <member>\
+                                    <name>foo</name>\
+                                    <value><int>42</int></value>\
+                                </member>\
+                                <member>\
+                                    <name>bar</name>\
+                                    <value><string>baz</string></value>\
+                                </member>\
+                            </struct>\
+                        </value>\
+                    </param>\
+                </params>\
+            </methodCall>",
+        );
+    }
+
+    #[test]
     fn decodes_success_response() {
         assert_eq!(
             Response::success(vec![
@@ -190,7 +323,7 @@ mod tests {
                 <struct>
                     <member>
                         <name>foo</name>
-                        <value><i4>42</i4></value>
+                        <value><int>42</int></value>
                     </member>
                     <member>
                         <name>bar</name>
