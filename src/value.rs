@@ -83,53 +83,51 @@ impl Value {
                 node.tag_name().name()
             );
         }
-        for child in node.children() {
-            if child.is_text() {
-                return Ok(Value::String(child.text().unwrap_or("").into()));
-            }
-            if child.is_element() {
-                return Ok(match child.tag_name().name() {
-                    "i4" | "int" => Value::Int(literal_text_in_node(child).parse()?),
-                    "boolean" => Value::Bool(literal_text_in_node(child).parse::<u8>()? != 0),
-                    "string" => Value::String(literal_text_in_node(child).to_owned()),
-                    "double" => Value::Double(literal_text_in_node(child).parse()?),
-                    "dateTime.iso8601" => {
-                        Value::DateTime(DateTime::parse_from_rfc3339(literal_text_in_node(child))?)
-                    }
-                    "base64" => Value::Base64(STANDARD.decode(literal_text_in_node(child))?),
-                    "array" => Value::Array(
-                        child
-                            .children()
-                            .find(|node| node.has_tag_name("data"))
-                            .map_or_else(Vec::new, |data_node| {
-                                data_node
-                                    .children()
-                                    .filter_map(|value_node| Value::read_xml(value_node).ok())
-                                    .collect()
-                            }),
-                    ),
-                    "struct" => Value::Struct(
-                        child
-                            .children()
-                            .filter(|member_node| member_node.has_tag_name("member"))
-                            .filter_map(|member_node| {
-                                Some((
-                                    literal_text_in_node(
-                                        member_node
-                                            .children()
-                                            .find(|node| node.has_tag_name("name"))?,
-                                    )
-                                    .into(),
+        if let Some(child) = node.children().find(|child| child.is_element()) {
+            return Ok(match child.tag_name().name() {
+                "i4" | "int" => Value::Int(literal_text_in_node(child).parse()?),
+                "boolean" => Value::Bool(literal_text_in_node(child).parse::<u8>()? != 0),
+                "string" => Value::String(literal_text_in_node(child).to_owned()),
+                "double" => Value::Double(literal_text_in_node(child).parse()?),
+                "dateTime.iso8601" => {
+                    Value::DateTime(DateTime::parse_from_rfc3339(literal_text_in_node(child))?)
+                }
+                "base64" => Value::Base64(STANDARD.decode(literal_text_in_node(child))?),
+                "array" => Value::Array(
+                    child
+                        .children()
+                        .find(|node| node.has_tag_name("data"))
+                        .map_or_else(Vec::new, |data_node| {
+                            data_node
+                                .children()
+                                .filter_map(|value_node| Value::read_xml(value_node).ok())
+                                .collect()
+                        }),
+                ),
+                "struct" => Value::Struct(
+                    child
+                        .children()
+                        .filter(|member_node| member_node.has_tag_name("member"))
+                        .filter_map(|member_node| {
+                            Some((
+                                literal_text_in_node(
                                     member_node
                                         .children()
-                                        .find_map(|node| Value::read_xml(node).ok())?,
-                                ))
-                            })
-                            .collect(),
-                    ),
-                    _ => bail!("Invalid value child tag {}", child.tag_name().name()),
-                });
-            }
+                                        .find(|node| node.has_tag_name("name"))?,
+                                )
+                                .into(),
+                                member_node
+                                    .children()
+                                    .find_map(|node| Value::read_xml(node).ok())?,
+                            ))
+                        })
+                        .collect(),
+                ),
+                _ => bail!("Invalid value child tag {}", child.tag_name().name()),
+            });
+        }
+        if let Some(child) = node.children().find(|child| child.is_text()) {
+            return Ok(Value::String(child.text().unwrap_or("").into()));
         }
         bail!("No valid child element found");
     }
@@ -579,5 +577,10 @@ mod tests {
                 ("foo<3".into(), Value::String("foo".into())),
             ])
         );
+    }
+
+    #[test]
+    fn tolerates_whitespace_inside_value_tag() {
+        assert_eq!(read_string("<value>   <i4>12</i4></value>"), Value::Int(12));
     }
 }
