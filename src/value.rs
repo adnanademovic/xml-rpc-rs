@@ -1,3 +1,4 @@
+use crate::util::literal_text_in_node;
 use anyhow::bail;
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
@@ -74,35 +75,8 @@ pub enum Value {
     Struct(Vec<(String, Value)>),
 }
 
-fn literal_text_in_node<'a>(node: &'a Node) -> &'a str {
-    for child in node.children() {
-        if child.is_text() {
-            return child.text().unwrap_or("");
-        }
-    }
-    ""
-}
-
-fn parse_member_name(node: &Node) -> Option<String> {
-    for child in node.children() {
-        if child.has_tag_name("name") {
-            return Some(literal_text_in_node(&child).into());
-        }
-    }
-    None
-}
-
-fn parse_member_value(node: &Node) -> Option<Value> {
-    for child in node.children() {
-        if child.has_tag_name("value") {
-            return Value::read_xml(node).ok();
-        }
-    }
-    None
-}
-
 impl Value {
-    pub(crate) fn read_xml(node: &Node) -> anyhow::Result<Self> {
+    pub(crate) fn read_xml(node: Node) -> anyhow::Result<Self> {
         if !node.has_tag_name("value") {
             bail!(
                 "Expected node with tag name \"value\", found \"{}\"",
@@ -115,42 +89,44 @@ impl Value {
             }
             if child.is_element() {
                 return Ok(match child.tag_name().name() {
-                    "i4" | "int" => Value::Int(literal_text_in_node(&child).parse()?),
-                    "boolean" => Value::Bool(literal_text_in_node(&child).parse::<u8>()? != 0),
-                    "string" => Value::String(literal_text_in_node(&child).to_owned()),
-                    "double" => Value::Double(literal_text_in_node(&child).parse()?),
+                    "i4" | "int" => Value::Int(literal_text_in_node(child).parse()?),
+                    "boolean" => Value::Bool(literal_text_in_node(child).parse::<u8>()? != 0),
+                    "string" => Value::String(literal_text_in_node(child).to_owned()),
+                    "double" => Value::Double(literal_text_in_node(child).parse()?),
                     "dateTime.iso8601" => {
-                        Value::DateTime(DateTime::parse_from_rfc3339(literal_text_in_node(&child))?)
+                        Value::DateTime(DateTime::parse_from_rfc3339(literal_text_in_node(child))?)
                     }
-                    "base64" => Value::Base64(STANDARD.decode(literal_text_in_node(&child))?),
-                    "array" => {
-                        let mut data = vec![];
-                        for data_node in child.children() {
-                            if data_node.has_tag_name("data") {
-                                for value_node in data_node.children() {
-                                    if let Ok(value) = Value::read_xml(&value_node) {
-                                        data.push(value);
-                                    }
-                                }
-                                break;
-                            }
-                        }
-                        Value::Array(data)
-                    }
-                    "struct" => {
-                        let mut members = vec![];
-                        for member_node in child.children() {
-                            if member_node.has_tag_name("member") {
-                                if let (Some(key), Some(value)) = (
-                                    parse_member_name(&member_node),
-                                    parse_member_value(&member_node),
-                                ) {
-                                    members.push((key, value));
-                                }
-                            }
-                        }
-                        Value::Struct(members)
-                    }
+                    "base64" => Value::Base64(STANDARD.decode(literal_text_in_node(child))?),
+                    "array" => Value::Array(
+                        child
+                            .children()
+                            .find(|node| node.has_tag_name("data"))
+                            .map_or_else(Vec::new, |data_node| {
+                                data_node
+                                    .children()
+                                    .filter_map(|value_node| Value::read_xml(value_node).ok())
+                                    .collect()
+                            }),
+                    ),
+                    "struct" => Value::Struct(
+                        child
+                            .children()
+                            .filter(|member_node| member_node.has_tag_name("member"))
+                            .filter_map(|member_node| {
+                                Some((
+                                    literal_text_in_node(
+                                        member_node
+                                            .children()
+                                            .find(|node| node.has_tag_name("name"))?,
+                                    )
+                                    .into(),
+                                    member_node
+                                        .children()
+                                        .find_map(|node| Value::read_xml(node).ok())?,
+                                ))
+                            })
+                            .collect(),
+                    ),
                     _ => bail!("Invalid value child tag {}", child.tag_name().name()),
                 });
             }
@@ -219,6 +195,74 @@ impl Value {
             })
             .map(|_| ())
     }
+
+    pub fn into_i32(self) -> Option<i32> {
+        if let Value::Int(value) = self {
+            Some(value)
+        } else {
+            None
+        }
+    }
+
+    pub fn into_bool(self) -> Option<bool> {
+        if let Value::Bool(value) = self {
+            Some(value)
+        } else {
+            None
+        }
+    }
+
+    pub fn into_string(self) -> Option<String> {
+        if let Value::String(value) = self {
+            Some(value)
+        } else {
+            None
+        }
+    }
+
+    pub fn into_f64(self) -> Option<f64> {
+        if let Value::Double(value) = self {
+            Some(value)
+        } else {
+            None
+        }
+    }
+
+    pub fn into_date_time(self) -> Option<DateTime<FixedOffset>> {
+        if let Value::DateTime(value) = self {
+            Some(value)
+        } else {
+            None
+        }
+    }
+
+    pub fn into_bytes(self) -> Option<Vec<u8>> {
+        if let Value::Base64(value) = self {
+            Some(value)
+        } else {
+            None
+        }
+    }
+
+    pub fn into_array(self) -> Option<Vec<Value>> {
+        if let Value::Array(value) = self {
+            Some(value)
+        } else {
+            None
+        }
+    }
+
+    pub fn into_struct_kv_pairs(self) -> Option<Vec<(String, Value)>> {
+        if let Value::Struct(value) = self {
+            Some(value)
+        } else {
+            None
+        }
+    }
+
+    pub fn into_struct(self) -> Option<HashMap<String, Value>> {
+        Some(self.into_struct_kv_pairs()?.into_iter().collect())
+    }
 }
 
 impl From<i32> for Value {
@@ -247,6 +291,12 @@ impl From<f64> for Value {
 
 impl<T: Into<Value>> From<Vec<T>> for Value {
     fn from(value: Vec<T>) -> Self {
+        value.into_iter().collect()
+    }
+}
+
+impl<T: Into<Value>> From<Vec<(String, T)>> for Value {
+    fn from(value: Vec<(String, T)>) -> Self {
         value.into_iter().collect()
     }
 }

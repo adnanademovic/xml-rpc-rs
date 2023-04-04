@@ -1,3 +1,4 @@
+use crate::util::literal_text_in_node;
 use crate::Value;
 use anyhow::{bail, Context};
 use quick_xml::events::BytesText;
@@ -33,43 +34,23 @@ fn write_declaration<W: Write>(writer: &mut Writer<W>) -> quick_xml::Result<()> 
     writer.write_event(Event::Decl(BytesDecl::new("1.0", None, None)))
 }
 
-fn literal_text_in_node<'a>(node: &'a Node) -> &'a str {
-    for child in node.children() {
-        if child.is_text() {
-            return child.text().unwrap_or("");
-        }
-    }
-    ""
-}
-
-fn read_params(node: &Node) -> Vec<Value> {
-    let mut params = vec![];
-    for params_node in node.children() {
-        if params_node.has_tag_name("params") {
-            for param_node in params_node.children() {
-                if param_node.has_tag_name("param") {
-                    for value_node in param_node.children() {
-                        if let Ok(value) = Value::read_xml(&value_node) {
-                            params.push(value);
-                        }
-                    }
-                }
-            }
-        }
-    }
-    params
+fn read_params(node: Node) -> Vec<Value> {
+    node.children()
+        .find(|n| n.has_tag_name("params"))
+        .map_or_else(Vec::new, |params_node| {
+            params_node
+                .children()
+                .filter(|n| n.has_tag_name("param"))
+                .filter_map(|param_node| {
+                    param_node
+                        .children()
+                        .find_map(|value_node| Value::read_xml(value_node).ok())
+                })
+                .collect()
+        })
 }
 
 impl Request {
-    fn read_method_name(node: &Node) -> Option<String> {
-        for child in node.children() {
-            if child.has_tag_name("methodName") {
-                return Some(literal_text_in_node(&child).into());
-            }
-        }
-        None
-    }
-
     pub fn read_xml(data: &str) -> anyhow::Result<Self> {
         let document = Document::parse(data)?;
         let root = document.root();
@@ -77,9 +58,13 @@ impl Request {
             bail!("Expected \"methodCall\" at the root of a request");
         }
         Ok(Self {
-            name: Self::read_method_name(&root)
-                .context("\"methodName\" missing inside \"methodCall\"")?,
-            params: read_params(&root),
+            name: literal_text_in_node(
+                root.children()
+                    .find(|child| child.has_tag_name("methodName"))
+                    .context("\"methodName\" missing inside \"methodCall\"")?,
+            )
+            .into(),
+            params: read_params(root),
         })
     }
 
@@ -108,15 +93,6 @@ impl Request {
 }
 
 impl Response {
-    fn read_fault(node: &Node) -> anyhow::Result<Option<Value>> {
-        for child in node.children() {
-            if child.has_tag_name("fault") {
-                return Value::read_xml(&child).map(Some);
-            }
-        }
-        Ok(None)
-    }
-
     pub fn read_xml(data: &str) -> anyhow::Result<Self> {
         let document = Document::parse(data)?;
         let root = document.root();
@@ -124,7 +100,8 @@ impl Response {
             bail!("Expected \"methodResponse\" at the root of a request");
         }
 
-        if let Some(fault_data) = Response::read_fault(&root)? {
+        if let Some(fault) = root.children().find(|child| child.has_tag_name("fault")) {
+            let fault_data = Value::read_xml(fault)?;
             let Value::Struct(fault_data) = fault_data else {
                 bail!("Data inside \"fault\" needs to be a structure");
             };
@@ -137,7 +114,7 @@ impl Response {
             };
             Ok(Self::failure(code, message))
         } else {
-            Ok(Self::success(read_params(&root)))
+            Ok(Self::success(read_params(root)))
         }
     }
 
