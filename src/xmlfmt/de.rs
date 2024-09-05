@@ -232,20 +232,25 @@ impl<'de> serde::Deserializer<'de> for Value {
     where
         V: Visitor<'de>,
     {
-        if let Value::Array(mut v) = self {
-            let v1 = v.pop();
-            if !v.is_empty() {
-                return Err(serde::de::Error::invalid_value(
-                    Unexpected::Seq,
-                    &"array with a single element",
-                ));
+        match self {
+            Value::Array(mut v) => {
+                let v1 = v.pop();
+                if !v.is_empty() {
+                    return Err(serde::de::Error::invalid_value(
+                        Unexpected::Seq,
+                        &"array with a single element",
+                    ));
+                }
+                match v1 {
+                    Some(x) => visitor.visit_some(x),
+                    None => visitor.visit_none(),
+                }
+            },
+            
+            v => {
+                visitor.visit_some(v)
+                //Err(serde::de::Error::invalid_value(self.unexpected(), &visitor))
             }
-            match v1 {
-                Some(x) => visitor.visit_some(x),
-                None => visitor.visit_none(),
-            }
-        } else {
-            Err(serde::de::Error::invalid_value(self.unexpected(), &visitor))
         }
     }
 
