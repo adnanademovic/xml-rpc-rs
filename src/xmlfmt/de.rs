@@ -249,7 +249,6 @@ impl<'de> serde::Deserializer<'de> for Value {
             
             v => {
                 visitor.visit_some(v)
-                //Err(serde::de::Error::invalid_value(self.unexpected(), &visitor))
             }
         }
     }
