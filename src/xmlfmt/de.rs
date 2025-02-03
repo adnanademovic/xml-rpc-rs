@@ -162,6 +162,9 @@ impl<'de> serde::Deserializer<'de> for Value {
                     .parse()
                     .map_err(|_| serde::de::Error::invalid_value(Unexpected::Str(&v), &visitor));
                 visitor.visit_f64(x?)
+            },
+            Value::Int(v) => {
+                visitor.visit_f64(v as f64)
             }
             _ => Err(serde::de::Error::invalid_value(self.unexpected(), &visitor)),
         }
