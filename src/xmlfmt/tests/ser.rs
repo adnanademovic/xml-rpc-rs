@@ -27,20 +27,17 @@ fn writes_integers_as_ints_or_strings_if_too_big() {
             .unwrap(),
         Value::String("10000000000000000000".into())
     );
+    assert_eq!((-42_i8).serialize(Serializer {}).unwrap(), Value::Int(-42));
     assert_eq!(
-        (-42 as i8).serialize(Serializer {}).unwrap(),
-        Value::Int(-42)
-    );
-    assert_eq!(
-        (-26_000 as i16).serialize(Serializer {}).unwrap(),
+        (-26_000_i16).serialize(Serializer {}).unwrap(),
         Value::Int(-26_000)
     );
     assert_eq!(
-        (-2_000_000_000 as i32).serialize(Serializer {}).unwrap(),
+        (-2_000_000_000_i32).serialize(Serializer {}).unwrap(),
         Value::Int(-2000000000)
     );
     assert_eq!(
-        (-8_000_000_000_000_000_000 as i64)
+        (-8_000_000_000_000_000_000_i64)
             .serialize(Serializer {})
             .unwrap(),
         Value::String("-8000000000000000000".into())
@@ -218,7 +215,7 @@ fn writes_struct_as_struct() {
         bar: u64,
         baz: String,
         qux: bool,
-    };
+    }
 
     let mut members = HashMap::new();
     members.insert("foo".into(), Value::Int(4));
@@ -371,7 +368,7 @@ fn writes_variant_as_one_member_struct() {
         Bar(i32),
         Baz(bool, &'static str),
         Qux { alpha: i32, beta: Vec<bool> },
-    };
+    }
 
     let mut members = HashMap::new();
     members.insert("Foo".into(), Value::Struct(HashMap::new()));

@@ -162,10 +162,8 @@ impl<'de> serde::Deserializer<'de> for Value {
                     .parse()
                     .map_err(|_| serde::de::Error::invalid_value(Unexpected::Str(&v), &visitor));
                 visitor.visit_f64(x?)
-            },
-            Value::Int(v) => {
-                visitor.visit_f64(v as f64)
             }
+            Value::Int(v) => visitor.visit_f64(v as f64),
             _ => Err(serde::de::Error::invalid_value(self.unexpected(), &visitor)),
         }
     }
@@ -248,11 +246,9 @@ impl<'de> serde::Deserializer<'de> for Value {
                     Some(x) => visitor.visit_some(x),
                     None => visitor.visit_none(),
                 }
-            },
-            
-            v => {
-                visitor.visit_some(v)
             }
+
+            v => visitor.visit_some(v),
         }
     }
 
@@ -351,7 +347,7 @@ impl<'de> serde::Deserializer<'de> for Value {
                     if member_iter.next().is_none() {
                         return visitor.visit_enum(EnumDeserializer {
                             variant: key,
-                            value: value,
+                            value,
                         });
                     }
                 }
@@ -393,7 +389,7 @@ impl<'de> serde::Deserializer<'de> for SeqDeserializer {
         V: Visitor<'de>,
     {
         let len = self.iter.len();
-        let ret = try!(visitor.visit_seq(&mut self));
+        let ret = visitor.visit_seq(&mut self)?;
         let remaining = self.iter.len();
         if remaining == 0 {
             Ok(ret)

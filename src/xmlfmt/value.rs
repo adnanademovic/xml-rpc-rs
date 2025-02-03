@@ -1,4 +1,4 @@
-use base64;
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::de::Unexpected;
 use std;
 use std::collections::HashMap;
@@ -67,27 +67,28 @@ pub trait ToXml {
 
 impl ToXml for Call {
     fn to_xml(&self) -> String {
+        use std::fmt::Write;
         format!(
             include_str!("templates/call.xml"),
             name = self.name,
-            params = self
-                .params
-                .iter()
-                .map(|param| format!("<param>{}</param>", param.to_xml()))
-                .collect::<String>()
+            params = self.params.iter().fold(String::new(), |mut output, param| {
+                let _ = write!(output, "<param>{}</param>", param.to_xml());
+                output
+            }),
         )
     }
 }
 
 impl ToXml for Response {
     fn to_xml(&self) -> String {
+        use std::fmt::Write;
         match *self {
             Ok(ref params) => format!(
                 include_str!("templates/response_success.xml"),
-                params = params
-                    .iter()
-                    .map(|param| format!("<param>{}</param>", param.to_xml()))
-                    .collect::<String>()
+                params = params.iter().fold(String::new(), |mut output, param| {
+                    let _ = write!(output, "<param>{}</param>", param.to_xml());
+                    output
+                })
             ),
             Err(Fault { code, ref message }) => format!(
                 include_str!("templates/response_fault.xml"),
@@ -114,7 +115,7 @@ impl ToXml for Value {
                 format!("<value><dateTime.iso8601>{}</dateTime.iso8601></value>", v)
             }
             Value::Base64(ref v) => {
-                format!("<value><base64>{}</base64></value>", base64::encode(v))
+                format!("<value><base64>{}</base64></value>", STANDARD.encode(v))
             }
             Value::Array(ref v) => format!(
                 "<value><array><data>{}</data></array></value>",
@@ -122,13 +123,16 @@ impl ToXml for Value {
             ),
             Value::Struct(ref v) => format!(
                 "<value><struct>{}</struct></value>",
-                v.iter()
-                    .map(|(key, value)| format!(
+                v.iter().fold(String::new(), |mut output, (key, value)| {
+                    use std::fmt::Write;
+                    let _ = write!(
+                        output,
                         "<member><name>{}</name>{}</member>",
                         key,
                         value.to_xml()
-                    ))
-                    .collect::<String>()
+                    );
+                    output
+                })
             ),
         }
     }

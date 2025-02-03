@@ -35,7 +35,7 @@ pub struct Client {
 impl Client {
     pub fn new() -> Result<Client> {
         let client = HyperClient::new();
-        Ok(Client { client: client })
+        Ok(Client { client })
     }
 
     pub fn call_value<Tkey>(&mut self, uri: &Url, name: Tkey, params: Params) -> Result<Response>

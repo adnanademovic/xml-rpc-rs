@@ -1,6 +1,6 @@
 use super::error::{Result, ResultExt};
 use super::{Call, Fault, Response, Value};
-use base64;
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use regex::Regex;
 use std;
 use std::collections::HashMap;
@@ -71,17 +71,19 @@ enum XmlValue {
     Struct(XmlStruct),
 }
 
-impl Into<Result<Value>> for XmlValue {
-    fn into(self) -> Result<Value> {
-        Ok(match self {
+impl From<XmlValue> for Result<Value> {
+    fn from(val: XmlValue) -> Self {
+        Ok(match val {
             XmlValue::I4(v) | XmlValue::Int(v) => Value::Int(v),
             XmlValue::Bool(v) => Value::Bool(v != 0),
             XmlValue::Str(v) => Value::String(v),
             XmlValue::Double(v) => Value::Double(v.parse().chain_err(|| "Failed to parse double")?),
             XmlValue::DateTime(v) => Value::DateTime(v),
-            XmlValue::Base64(v) => {
-                Value::Base64(base64::decode(v.as_bytes()).chain_err(|| "Failed to parse base64")?)
-            }
+            XmlValue::Base64(v) => Value::Base64(
+                STANDARD
+                    .decode(v.as_bytes())
+                    .chain_err(|| "Failed to parse base64")?,
+            ),
             XmlValue::Array(v) => {
                 let items: Result<Vec<Value>> = v.into();
                 Value::Array(items?)
@@ -102,11 +104,11 @@ struct XmlCall {
     pub params: XmlParams,
 }
 
-impl Into<Result<Call>> for XmlCall {
-    fn into(self) -> Result<Call> {
-        let params: Result<Vec<Value>> = self.params.into();
+impl From<XmlCall> for Result<Call> {
+    fn from(val: XmlCall) -> Self {
+        let params: Result<Vec<Value>> = val.params.into();
         Ok(Call {
-            name: self.name,
+            name: val.name,
             params: params?,
         })
     }
@@ -120,9 +122,9 @@ enum XmlResponseResult {
     Failure { value: XmlValue },
 }
 
-impl Into<Result<Response>> for XmlResponseResult {
-    fn into(self) -> Result<Response> {
-        match self {
+impl From<XmlResponseResult> for Result<Response> {
+    fn from(val: XmlResponseResult) -> Self {
+        match val {
             XmlResponseResult::Success(params) => {
                 let params: Result<Vec<Value>> = params.into();
                 Ok(Ok(params?))
@@ -146,9 +148,9 @@ enum XmlResponse {
     Response(XmlResponseResult),
 }
 
-impl Into<Result<Response>> for XmlResponse {
-    fn into(self) -> Result<Response> {
-        match self {
+impl From<XmlResponse> for Result<Response> {
+    fn from(val: XmlResponse) -> Self {
+        match val {
             XmlResponse::Response(v) => v.into(),
         }
     }
@@ -160,9 +162,9 @@ struct XmlParams {
     pub params: Vec<XmlParamData>,
 }
 
-impl Into<Result<Vec<Value>>> for XmlParams {
-    fn into(self) -> Result<Vec<Value>> {
-        self.params
+impl From<XmlParams> for Result<Vec<Value>> {
+    fn from(val: XmlParams) -> Self {
+        val.params
             .into_iter()
             .map(Into::<Result<Value>>::into)
             .collect()
@@ -174,9 +176,9 @@ struct XmlParamData {
     pub value: XmlValue,
 }
 
-impl Into<Result<Value>> for XmlParamData {
-    fn into(self) -> Result<Value> {
-        self.value.into()
+impl From<XmlParamData> for Result<Value> {
+    fn from(val: XmlParamData) -> Self {
+        val.value.into()
     }
 }
 
@@ -186,9 +188,9 @@ struct XmlArray {
     pub data: XmlArrayData,
 }
 
-impl Into<Result<Vec<Value>>> for XmlArray {
-    fn into(self) -> Result<Vec<Value>> {
-        self.data.into()
+impl From<XmlArray> for Result<Vec<Value>> {
+    fn from(val: XmlArray) -> Self {
+        val.data.into()
     }
 }
 
@@ -198,9 +200,9 @@ struct XmlArrayData {
     pub value: Vec<XmlValue>,
 }
 
-impl Into<Result<Vec<Value>>> for XmlArrayData {
-    fn into(self) -> Result<Vec<Value>> {
-        self.value
+impl From<XmlArrayData> for Result<Vec<Value>> {
+    fn from(val: XmlArrayData) -> Self {
+        val.value
             .into_iter()
             .map(Into::<Result<Value>>::into)
             .collect()
@@ -213,9 +215,9 @@ struct XmlStruct {
     pub members: Vec<XmlStructItem>,
 }
 
-impl Into<Result<HashMap<String, Value>>> for XmlStruct {
-    fn into(self) -> Result<HashMap<String, Value>> {
-        self.members
+impl From<XmlStruct> for Result<HashMap<String, Value>> {
+    fn from(val: XmlStruct) -> Self {
+        val.members
             .into_iter()
             .map(Into::<Result<(String, Value)>>::into)
             .collect()
@@ -228,9 +230,9 @@ struct XmlStructItem {
     pub value: XmlValue,
 }
 
-impl Into<Result<(String, Value)>> for XmlStructItem {
-    fn into(self) -> Result<(String, Value)> {
-        let value: Result<Value> = self.value.into();
-        Ok((self.name, value?))
+impl From<XmlStructItem> for Result<(String, Value)> {
+    fn from(val: XmlStructItem) -> Self {
+        let value: Result<Value> = val.value.into();
+        Ok((val.name, value?))
     }
 }
