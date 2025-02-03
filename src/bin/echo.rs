@@ -1,6 +1,7 @@
+extern crate serde;
 extern crate xml_rpc;
-#[macro_use]
-extern crate serde_derive;
+
+use serde::{Deserialize, Serialize};
 
 use std::{net, thread};
 use xml_rpc::{Client, Fault, Server};
